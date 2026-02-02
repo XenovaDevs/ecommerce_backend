@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(test:*)",
+      "Bash(php artisan config:clear:*)",
+      "Bash(php artisan cache:clear:*)",
+      "Bash(php artisan route:clear)",
+      "Bash(php artisan migrate:fresh:*)",
+      "Bash(wc:*)",
+      "Bash(ls:*)",
+      "Bash(composer require:*)",
+      "Bash(php artisan migrate:*)",
+      "Bash(composer show:*)",
+      "Bash(php artisan:*)"
+    ]
+  }
+}
