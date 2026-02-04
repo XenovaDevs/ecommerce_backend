@@ -8,10 +8,11 @@ use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\AssertValidationErrors;
 
 class PublicEndpointsTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, AssertValidationErrors;
 
     public function test_can_list_categories_without_authentication(): void
     {
@@ -103,7 +104,7 @@ class PublicEndpointsTest extends TestCase
         $response = $this->postJson('/api/v1/contact', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['name', 'email', 'subject', 'message']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['name', 'email', 'subject', 'message']]]);
     }
 
     public function test_contact_form_validates_email_format(): void
@@ -116,7 +117,7 @@ class PublicEndpointsTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['email']]]);
     }
 
     public function test_can_filter_products_by_category(): void

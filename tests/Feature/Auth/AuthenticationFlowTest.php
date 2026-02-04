@@ -7,10 +7,11 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\AssertValidationErrors;
 
 class AuthenticationFlowTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, AssertValidationErrors;
 
     public function test_complete_authentication_flow(): void
     {
@@ -99,7 +100,7 @@ class AuthenticationFlowTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['email']]]);
     }
 
     public function test_login_with_inactive_account_fails(): void
@@ -127,6 +128,6 @@ class AuthenticationFlowTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['password']]]);
     }
 }

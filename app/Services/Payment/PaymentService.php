@@ -10,8 +10,8 @@ use App\Exceptions\Domain\EntityNotFoundException;
 use App\Exceptions\Domain\InvalidOperationException;
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\Setting;
 use App\Models\User;
+use App\Services\Payment\DTOs\PaymentPreferenceRequest;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -45,27 +45,31 @@ class PaymentService
 
         return DB::transaction(function () use ($order, $user) {
             $payment = $this->createPaymentRecord($order);
-            $preferenceData = $this->buildPreferenceData($order, $user, $payment);
 
             try {
-                $preferenceResponse = $this->mercadoPagoService->createPreference($preferenceData);
+                // Build preference request using DTO
+                $preferenceRequest = PaymentPreferenceRequest::fromOrder($order, $user, $payment->id);
 
+                // Create preference in Mercado Pago
+                $preferenceResponse = $this->mercadoPagoService->createPreference($preferenceRequest);
+
+                // Update payment with preference data
                 $payment->update([
-                    'external_id' => $preferenceResponse['id'],
-                    'metadata' => ['preference_id' => $preferenceResponse['id']],
+                    'external_id' => $preferenceResponse->preferenceId,
+                    'metadata' => ['preference_id' => $preferenceResponse->preferenceId],
                 ]);
 
                 Log::info('Payment preference created successfully', [
                     'payment_id' => $payment->id,
                     'order_id' => $order->id,
-                    'preference_id' => $preferenceResponse['id'],
+                    'preference_id' => $preferenceResponse->preferenceId,
                 ]);
 
                 return [
                     'payment_id' => $payment->id,
-                    'preference_id' => $preferenceResponse['id'],
-                    'init_point' => $preferenceResponse['init_point'],
-                    'sandbox_init_point' => $preferenceResponse['sandbox_init_point'] ?? null,
+                    'preference_id' => $preferenceResponse->preferenceId,
+                    'init_point' => $preferenceResponse->getInitPoint(),
+                    'sandbox_init_point' => $preferenceResponse->sandboxInitPoint,
                 ];
             } catch (InvalidOperationException $e) {
                 $payment->markAsFailed($e->getMessage());
@@ -327,40 +331,4 @@ class PaymentService
         ]);
     }
 
-    /**
-     * Build preference data for Mercado Pago.
-     *
-     * @param Order $order
-     * @param User $user
-     * @param Payment $payment
-     * @return array<string, mixed>
-     */
-    private function buildPreferenceData(Order $order, User $user, Payment $payment): array
-    {
-        $items = $order->items->map(fn ($item) => [
-            'id' => (string) $item->product_id,
-            'title' => $item->name,
-            'description' => $item->name,
-            'quantity' => $item->quantity,
-            'unit_price' => (float) $item->price,
-            'currency_id' => Setting::get('currency', 'ARS'),
-        ])->toArray();
-
-        return [
-            'items' => $items,
-            'payer' => [
-                'name' => $user->name,
-                'email' => $user->email,
-            ],
-            'back_urls' => [
-                'success' => config('services.mercadopago.success_url'),
-                'failure' => config('services.mercadopago.failure_url'),
-                'pending' => config('services.mercadopago.pending_url'),
-            ],
-            'auto_return' => 'approved',
-            'external_reference' => (string) $payment->id,
-            'notification_url' => config('services.mercadopago.notification_url'),
-            'statement_descriptor' => config('app.name'),
-        ];
-    }
 }

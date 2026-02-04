@@ -7,10 +7,11 @@ namespace Tests\Feature\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Tests\Traits\AuthHelpers;
+use Tests\Traits\AssertValidationErrors;
 
 class CustomerProfileTest extends TestCase
 {
-    use RefreshDatabase, AuthHelpers;
+    use RefreshDatabase, AuthHelpers, AssertValidationErrors;
 
     public function test_customer_can_view_profile(): void
     {
@@ -54,7 +55,7 @@ class CustomerProfileTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['email']]]);
     }
 
     public function test_customer_profile_requires_authentication(): void

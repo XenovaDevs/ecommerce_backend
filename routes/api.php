@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\CartController;
+use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\CustomerAddressController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\V1\Admin\AdminProductController;
 use App\Http\Controllers\Api\V1\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\V1\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\V1\Admin\AdminSettingController;
+use App\Http\Controllers\Api\V1\Admin\AdminShipmentController;
 use App\Http\Controllers\Api\V1\Admin\ReportController;
 use App\Support\Constants\SecurityConstants;
 use Illuminate\Support\Facades\Route;
@@ -49,7 +51,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:' . SecurityConstants::AUTH_RATE_LIMIT . ',1');
         Route::post('/refresh', [AuthController::class, 'refresh'])
             ->middleware('throttle:' . SecurityConstants::REFRESH_TOKEN_RATE_LIMIT . ',1');
-        // TODO: Add forgot-password and reset-password routes
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+            ->middleware('throttle:1,1'); // 1 request per 60 seconds
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+            ->middleware('throttle:' . SecurityConstants::AUTH_RATE_LIMIT . ',1');
     });
 
     // Public Settings
@@ -71,6 +76,10 @@ Route::prefix('v1')->group(function () {
         Route::put('/items/{id}', [CartController::class, 'updateItem']);
         Route::delete('/items/{id}', [CartController::class, 'removeItem']);
         Route::delete('/', [CartController::class, 'clear']);
+
+        // Coupon management (guest and authenticated)
+        Route::post('/coupons', [CouponController::class, 'apply']);
+        Route::delete('/coupons/{coupon}', [CouponController::class, 'remove']);
     });
 
     // Shipping (public)
@@ -180,6 +189,10 @@ Route::prefix('v1')->group(function () {
             ->middleware('ability:orders.view-all');
         Route::put('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])
             ->middleware('ability:orders.update-status');
+
+        // Shipment Management
+        Route::post('/shipments/orders/{order}', [AdminShipmentController::class, 'create'])
+            ->middleware('ability:orders.create-shipment');
 
         // Customers Management
         Route::get('/customers', [AdminCustomerController::class, 'index'])

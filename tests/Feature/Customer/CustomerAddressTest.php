@@ -8,10 +8,11 @@ use App\Models\CustomerAddress;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Tests\Traits\AuthHelpers;
+use Tests\Traits\AssertValidationErrors;
 
 class CustomerAddressTest extends TestCase
 {
-    use RefreshDatabase, AuthHelpers;
+    use RefreshDatabase, AuthHelpers, AssertValidationErrors;
 
     public function test_customer_can_list_addresses(): void
     {
@@ -105,15 +106,14 @@ class CustomerAddressTest extends TestCase
 
         $response = $this->postJson('/api/v1/customer/addresses', []);
 
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors([
-                'first_name',
-                'last_name',
-                'address',
-                'city',
-                'postal_code',
-                'country',
-            ]);
+        $this->assertCustomValidationErrors($response, [
+            'name',
+            'phone',
+            'address',
+            'city',
+            'postal_code',
+            'country',
+        ]);
     }
 
     public function test_only_one_address_can_be_default_per_type(): void

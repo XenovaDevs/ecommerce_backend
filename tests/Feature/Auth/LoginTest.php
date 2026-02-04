@@ -5,10 +5,11 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\AssertValidationErrors;
 
 class LoginTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, AssertValidationErrors;
 
     public function test_user_can_login_with_valid_credentials(): void
     {
@@ -47,6 +48,6 @@ class LoginTest extends TestCase
         $response = $this->postJson('/api/v1/auth/login', []);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email', 'password']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['email', 'password']]]);
     }
 }

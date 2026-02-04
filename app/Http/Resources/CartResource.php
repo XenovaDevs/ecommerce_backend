@@ -20,13 +20,18 @@ class CartResource extends JsonResource
             'tax' => (float) ($this->tax ?? 0),
             'total' => (float) $this->total,
             'is_empty' => $this->is_empty,
-            'coupon' => $this->whenLoaded('coupon', function () {
-                return $this->coupon ? [
-                    'id' => $this->coupon->id,
-                    'code' => $this->coupon->code,
-                    'discount_type' => $this->coupon->discount_type,
-                    'discount_value' => (float) $this->coupon->discount_value,
-                ] : null;
+            'coupons' => $this->whenLoaded('coupons', function () {
+                return $this->coupons->map(function ($coupon) {
+                    return [
+                        'id' => $coupon->id,
+                        'code' => $coupon->code,
+                        'type' => $coupon->type,
+                        'value' => (float) $coupon->value,
+                        'discount_amount' => (float) $coupon->calculateDiscount(
+                            $this->subtotal - $this->discount
+                        ),
+                    ];
+                });
             }),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

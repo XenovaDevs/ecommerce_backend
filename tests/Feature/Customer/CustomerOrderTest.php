@@ -10,10 +10,11 @@ use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Tests\Traits\AuthHelpers;
+use Tests\Traits\AssertValidationErrors;
 
 class CustomerOrderTest extends TestCase
 {
-    use RefreshDatabase, AuthHelpers;
+    use RefreshDatabase, AuthHelpers, AssertValidationErrors;
 
     public function test_customer_can_view_their_orders(): void
     {
@@ -124,7 +125,7 @@ class CustomerOrderTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['shipping_address_id']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['shipping_address_id']]]);
     }
 
     public function test_checkout_fails_with_empty_cart(): void

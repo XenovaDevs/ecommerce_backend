@@ -51,6 +51,11 @@ final class SuccessMessages
         'CLEARED' => 'Cart cleared successfully',
     ];
 
+    public const COUPON = [
+        'APPLIED' => 'Coupon applied successfully',
+        'REMOVED' => 'Coupon removed successfully',
+    ];
+
     public const ORDER = [
         'CREATED' => 'Order placed successfully',
         'CANCELLED' => 'Order cancelled successfully',

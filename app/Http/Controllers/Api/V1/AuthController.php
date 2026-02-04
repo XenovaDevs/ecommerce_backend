@@ -8,11 +8,14 @@ use App\Contracts\Services\AuthServiceInterface;
 use App\DTOs\Auth\LoginRequestDTO;
 use App\DTOs\Auth\RegisterRequestDTO;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Resources\UserResource;
 use App\Messages\SuccessMessages;
+use App\Services\Auth\PasswordResetService;
 use App\Support\Traits\HasApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +28,8 @@ class AuthController extends Controller
     use HasApiResponse;
 
     public function __construct(
-        private readonly AuthServiceInterface $authService
+        private readonly AuthServiceInterface $authService,
+        private readonly PasswordResetService $passwordResetService
     ) {}
 
     public function register(RegisterRequest $request): JsonResponse
@@ -70,5 +74,38 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return $this->success(new UserResource($request->user()));
+    }
+
+    /**
+     * Send password reset link to user's email.
+     * Rate limited to 1 request per 60 seconds per email.
+     */
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        $this->passwordResetService->sendResetLink($request->validated('email'));
+
+        return $this->success(
+            null,
+            SuccessMessages::AUTH['PASSWORD_RESET_SENT']
+        );
+    }
+
+    /**
+     * Reset user's password using token from email.
+     */
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $this->passwordResetService->resetPassword(
+            email: $validated['email'],
+            token: $validated['token'],
+            password: $validated['password']
+        );
+
+        return $this->success(
+            null,
+            SuccessMessages::AUTH['PASSWORD_RESET']
+        );
     }
 }

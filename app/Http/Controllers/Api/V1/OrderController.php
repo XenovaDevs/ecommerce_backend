@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\DTOs\Order\CreateOrderDTO;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Order\CreateOrderRequest;
+use App\Http\Requests\Order\CheckoutRequest;
 use App\Http\Resources\OrderResource;
 use App\Messages\SuccessMessages;
 use App\Services\Order\OrderService;
@@ -42,13 +42,18 @@ class OrderController extends Controller
         return $this->success(new OrderResource($order));
     }
 
-    public function checkout(CreateOrderRequest $request): JsonResponse
+    public function checkout(CheckoutRequest $request): JsonResponse
     {
         $dto = CreateOrderDTO::fromRequest($request);
-        $order = $this->orderService->createFromCart($request->user(), $dto);
+        $result = $this->orderService->createFromCart($request->user(), $dto);
+
+        $responseData = [
+            'order' => new OrderResource($result['order']),
+            'payment_url' => $result['payment_url'],
+        ];
 
         return $this->created(
-            new OrderResource($order),
+            $responseData,
             SuccessMessages::ORDER['CREATED']
         );
     }

@@ -4,10 +4,11 @@ namespace Tests\Feature\Auth;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
+use Tests\Traits\AssertValidationErrors;
 
 class RegisterTest extends TestCase
 {
-    use RefreshDatabase;
+    use RefreshDatabase, AssertValidationErrors;
 
     public function test_user_can_register_with_valid_data(): void
     {
@@ -45,7 +46,7 @@ class RegisterTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['email']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['email']]]);
     }
 
     public function test_registration_requires_password_confirmation(): void
@@ -58,6 +59,6 @@ class RegisterTest extends TestCase
         ]);
 
         $response->assertStatus(422)
-            ->assertJsonValidationErrors(['password']);
+            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['password']]]);
     }
 }

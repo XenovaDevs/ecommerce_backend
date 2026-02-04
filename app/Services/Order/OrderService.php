@@ -14,27 +14,50 @@ use App\Models\Order;
 use App\Models\OrderAddress;
 use App\Models\User;
 use App\Services\Cart\CartService;
+use App\Services\Coupon\CouponService;
+use App\Services\Payment\PaymentService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @ai-context OrderService handles all order-related business logic.
+ *             Orchestrates order creation including payment and coupon processing.
  */
 class OrderService
 {
     public function __construct(
         private readonly CartService $cartService,
-        private readonly OrderCalculationService $calculationService
+        private readonly OrderCalculationService $calculationService,
+        private readonly CouponService $couponService,
+        private readonly PaymentService $paymentService
     ) {}
 
-    public function createFromCart(User $user, CreateOrderDTO $dto): Order
+    /**
+     * Create an order from the user's cart.
+     * This orchestrates the entire checkout process including:
+     * - Cart validation
+     * - Coupon validation and application
+     * - Order creation
+     * - Stock reduction
+     * - Coupon usage recording
+     * - Payment preference creation
+     * - Cart clearing
+     *
+     * @param User $user The user creating the order
+     * @param CreateOrderDTO $dto Order creation data
+     * @return array Contains 'order' and 'payment_url'
+     * @throws InvalidOperationException If cart is invalid or checkout fails
+     */
+    public function createFromCart(User $user, CreateOrderDTO $dto): array
     {
-        $cart = Cart::forUser($user->id)->first();
+        $cart = Cart::forUser($user->id)->with(['items.product', 'coupons'])->first();
 
         if (!$cart || $cart->is_empty) {
             throw new InvalidOperationException('Cart is empty', 'EMPTY_CART');
         }
 
+        // Validate cart items (stock availability, prices)
         $errors = $this->cartService->validateCart($cart);
         if (!empty($errors)) {
             throw new InvalidOperationException(
@@ -44,14 +67,20 @@ class OrderService
             );
         }
 
+        // Validate applied coupons are still valid
+        $this->validateCartCoupons($cart);
+
         return DB::transaction(function () use ($user, $cart, $dto) {
+            // Create addresses
             $shippingAddress = $this->createOrderAddress($dto->shippingAddress, 'shipping');
             $billingAddress = $dto->billingAddress
                 ? $this->createOrderAddress($dto->billingAddress, 'billing')
                 : $shippingAddress;
 
-            $totals = $this->calculationService->calculate($cart, $dto->shippingCost ?? 0);
+            // Calculate totals including coupon discounts
+            $totals = $this->calculationService->calculate($cart, $dto->shippingCost);
 
+            // Create order
             $order = Order::create([
                 'user_id' => $user->id,
                 'status' => OrderStatus::PENDING,
@@ -66,6 +95,7 @@ class OrderService
                 'billing_address_id' => $billingAddress->id,
             ]);
 
+            // Create order items and decrease stock
             foreach ($cart->items as $item) {
                 $order->items()->create([
                     'product_id' => $item->product_id,
@@ -81,12 +111,92 @@ class OrderService
                 $item->product->decreaseStock($item->quantity, $item->variant_id);
             }
 
+            // Record coupon usage
+            $this->recordCouponUsage($cart, $user, $order);
+
+            // Add order status history
             $order->addStatusHistory('Order created');
 
+            // Create payment preference
+            $paymentUrl = null;
+            if ($dto->paymentMethod === 'mercadopago') {
+                try {
+                    $paymentPreference = $this->paymentService->createPaymentPreference($user, $order->id);
+                    $paymentUrl = $paymentPreference['init_point'];
+
+                    Log::info('Payment preference created for order', [
+                        'order_id' => $order->id,
+                        'payment_id' => $paymentPreference['payment_id'],
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to create payment preference', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+
+                    // Continue without payment URL - user can retry payment later
+                    // Don't throw exception to avoid blocking order creation
+                }
+            }
+
+            // Clear cart after successful order creation
             $cart->clear();
 
-            return $order->load(['items', 'shippingAddress', 'billingAddress']);
+            return [
+                'order' => $order->load(['items', 'shippingAddress', 'billingAddress']),
+                'payment_url' => $paymentUrl,
+            ];
         });
+    }
+
+    /**
+     * Validate that all coupons applied to the cart are still valid.
+     *
+     * @param Cart $cart
+     * @return void
+     * @throws InvalidOperationException If any coupon is invalid
+     */
+    private function validateCartCoupons(Cart $cart): void
+    {
+        foreach ($cart->coupons as $coupon) {
+            try {
+                $this->couponService->validateCoupon($coupon->code, $cart->subtotal);
+            } catch (\Exception $e) {
+                throw new InvalidOperationException(
+                    "Coupon '{$coupon->code}' is no longer valid: {$e->getMessage()}",
+                    'INVALID_COUPON',
+                    ['coupon_code' => $coupon->code]
+                );
+            }
+        }
+    }
+
+    /**
+     * Record usage for all coupons applied to the cart.
+     *
+     * @param Cart $cart
+     * @param User $user
+     * @param Order $order
+     * @return void
+     */
+    private function recordCouponUsage(Cart $cart, User $user, Order $order): void
+    {
+        foreach ($cart->coupons as $coupon) {
+            $discountAmount = $coupon->calculateDiscount($cart->subtotal);
+
+            $this->couponService->recordCouponUsage(
+                $coupon,
+                $user,
+                $order,
+                $discountAmount
+            );
+
+            Log::info('Coupon usage recorded', [
+                'order_id' => $order->id,
+                'coupon_code' => $coupon->code,
+                'discount_amount' => $discountAmount,
+            ]);
+        }
     }
 
     public function findById(int $id, ?int $userId = null): Order

@@ -35,9 +35,19 @@ class PaymentController extends Controller
         return $this->success($preference);
     }
 
-    public function status(int $id): JsonResponse
+    /**
+     * Get payment status. Optionally sync with Mercado Pago if there's a discrepancy.
+     *
+     * @param int $id
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function status(int $id, Request $request): JsonResponse
     {
-        $payment = $this->paymentService->getPaymentStatus($id);
+        // Check if sync parameter is provided
+        $syncWithGateway = $request->boolean('sync', false);
+
+        $payment = $this->paymentService->getPaymentStatus($id, $syncWithGateway);
 
         return $this->success($payment);
     }

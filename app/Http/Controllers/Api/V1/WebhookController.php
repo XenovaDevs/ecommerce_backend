@@ -32,16 +32,23 @@ class WebhookController extends Controller
      */
     public function mercadoPago(Request $request): JsonResponse
     {
-        Log::info('Received Mercado Pago webhook', [
+        // Step 1: Log incoming webhook
+        Log::info('[Webhook] Received Mercado Pago webhook', [
             'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
             'type' => $request->input('type'),
             'action' => $request->input('action'),
+            'data_id' => $request->input('data.id'),
         ]);
 
-        // Validate webhook signature for security
+        // Step 2: Validate webhook signature for security
+        Log::debug('[Webhook] Validating webhook signature');
+
         if (!$this->paymentWebhookValidator->validateMercadoPagoWebhook($request)) {
-            Log::warning('Mercado Pago webhook rejected - invalid signature', [
+            Log::warning('[Webhook] Mercado Pago webhook rejected - invalid signature', [
                 'ip' => $request->ip(),
+                'has_x_signature' => $request->hasHeader('x-signature'),
+                'has_x_request_id' => $request->hasHeader('x-request-id'),
             ]);
 
             return response()->json([
@@ -49,17 +56,30 @@ class WebhookController extends Controller
             ], 401);
         }
 
-        // Process the webhook
+        Log::debug('[Webhook] Signature validated successfully');
+
+        // Step 3: Process the webhook
         try {
+            Log::info('[Webhook] Starting webhook processing', [
+                'payload' => $request->all(),
+            ]);
+
             $this->paymentService->processWebhook($request->all());
 
-            Log::info('Mercado Pago webhook processed successfully');
+            Log::info('[Webhook] Mercado Pago webhook processed successfully', [
+                'type' => $request->input('type'),
+                'data_id' => $request->input('data.id'),
+            ]);
 
             return response()->json(['status' => 'ok']);
         } catch (\Exception $e) {
-            Log::error('Mercado Pago webhook processing failed', [
+            Log::error('[Webhook] Mercado Pago webhook processing failed', [
                 'exception' => $e->getMessage(),
+                'exception_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString(),
+                'payload' => $request->all(),
             ]);
 
             // Return 200 to prevent Mercado Pago from retrying

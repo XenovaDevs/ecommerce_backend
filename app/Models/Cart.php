@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -13,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Cart extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'user_id',
         'session_id',
@@ -36,6 +39,11 @@ class Cart extends Model
         return $this->hasMany(CartItem::class);
     }
 
+    public function coupons(): BelongsToMany
+    {
+        return $this->belongsToMany(Coupon::class, 'cart_coupons');
+    }
+
     public function getSubtotalAttribute(): float
     {
         return $this->items->sum(fn ($item) => $item->total);
@@ -43,14 +51,29 @@ class Cart extends Model
 
     public function getDiscountAttribute(): float
     {
-        // TODO: Implement discount calculation based on coupons
-        return 0.0;
+        $subtotal = $this->subtotal;
+        $totalDiscount = 0.0;
+
+        foreach ($this->coupons as $coupon) {
+            if ($coupon->isValidForAmount($subtotal - $totalDiscount)) {
+                $totalDiscount += $coupon->calculateDiscount($subtotal - $totalDiscount);
+            }
+        }
+
+        return $totalDiscount;
     }
 
     public function getTaxAttribute(): float
     {
-        // TODO: Implement tax calculation based on settings
-        return 0.0;
+        $taxEnabled = Setting::get('tax_enabled', false);
+        $taxIncluded = Setting::get('tax_included_in_prices', true);
+
+        if (!$taxEnabled || $taxIncluded) {
+            return 0.0;
+        }
+
+        $taxRate = Setting::get('tax_rate', 21);
+        return round($this->subtotal * ($taxRate / 100), 2);
     }
 
     public function getTotalAttribute(): float

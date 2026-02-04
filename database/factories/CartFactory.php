@@ -14,15 +14,6 @@ class CartFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'session_id' => null,
         ];
-    }
-
-    public function guest(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'user_id' => null,
-            'session_id' => fake()->uuid(),
-        ]);
     }
 }

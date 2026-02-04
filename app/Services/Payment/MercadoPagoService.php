@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Payment;
 
 use App\Exceptions\Domain\InvalidOperationException;
+use App\Services\Payment\DTOs\PaymentPreferenceRequest;
+use App\Services\Payment\DTOs\PaymentPreferenceResponse;
 use Illuminate\Support\Facades\Log;
 use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Client\Payment\PaymentClient;
@@ -53,30 +55,30 @@ class MercadoPagoService
     /**
      * Create a payment preference in Mercado Pago.
      *
-     * @param array<string, mixed> $preferenceData
-     * @return array<string, mixed>
+     * @param PaymentPreferenceRequest $request
+     * @return PaymentPreferenceResponse
      * @throws InvalidOperationException
      */
-    public function createPreference(array $preferenceData): array
+    public function createPreference(PaymentPreferenceRequest $request): PaymentPreferenceResponse
     {
         try {
             Log::info('Creating Mercado Pago preference', [
-                'external_reference' => $preferenceData['external_reference'] ?? null,
-                'items_count' => count($preferenceData['items'] ?? []),
+                'external_reference' => $request->externalReference,
+                'items_count' => count($request->items),
             ]);
 
-            $preference = $this->preferenceClient->create($preferenceData);
+            $preference = $this->preferenceClient->create($request->toArray());
 
             Log::info('Mercado Pago preference created successfully', [
                 'preference_id' => $preference->id,
-                'external_reference' => $preferenceData['external_reference'] ?? null,
+                'external_reference' => $request->externalReference,
             ]);
 
-            return [
+            return PaymentPreferenceResponse::fromArray([
                 'id' => $preference->id,
                 'init_point' => $preference->init_point,
                 'sandbox_init_point' => $preference->sandbox_init_point,
-            ];
+            ]);
         } catch (MPApiException $e) {
             Log::error('Mercado Pago API error creating preference', [
                 'error' => $e->getMessage(),
