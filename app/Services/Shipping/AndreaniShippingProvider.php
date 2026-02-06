@@ -145,8 +145,8 @@ class AndreaniShippingProvider implements ShippingProviderInterface
     {
         return match (strtolower($andreaniStatus)) {
             'en preparacion', 'ingresado' => ShippingStatus::PENDING,
-            'despachado', 'en camino', 'en transito' => ShippingStatus::IN_TRANSIT,
-            'en distribucion' => ShippingStatus::SHIPPED,
+            'en camino', 'en transito' => ShippingStatus::IN_TRANSIT,
+            'despachado', 'en distribucion' => ShippingStatus::SHIPPED,
             'entregado' => ShippingStatus::DELIVERED,
             'devuelto', 'rechazado', 'no entregado' => ShippingStatus::FAILED,
             default => ShippingStatus::PENDING,
@@ -203,7 +203,7 @@ class AndreaniShippingProvider implements ShippingProviderInterface
      */
     private function buildShipmentPayload(Order $order): array
     {
-        $order->load(['shippingAddress', 'items.product']);
+        $order->loadMissing(['shippingAddress', 'items.product']);
 
         $shippingAddress = $order->shippingAddress;
 
@@ -227,10 +227,10 @@ class AndreaniShippingProvider implements ShippingProviderInterface
                 'postal' => [
                     'codigoPostal' => $shippingAddress->postal_code,
                     'calle' => $shippingAddress->address,
-                    'numero' => $shippingAddress->number ?? 'S/N',
+                    'numero' => 'S/N', // OrderAddress no tiene número por separado
                     'localidad' => $shippingAddress->city,
                     'region' => $shippingAddress->state,
-                    'pais' => $shippingAddress->country ?? 'Argentina',
+                    'pais' => $shippingAddress->country ?? 'AR',
                 ]
             ],
             'remitente' => [
@@ -241,10 +241,10 @@ class AndreaniShippingProvider implements ShippingProviderInterface
             ],
             'destinatario' => [
                 [
-                    'nombreCompleto' => $shippingAddress->full_name,
+                    'nombreCompleto' => $shippingAddress->name,
                     'email' => $order->user->email ?? '',
                     'documentoTipo' => 'DNI',
-                    'documentoNumero' => $shippingAddress->document_number ?? '',
+                    'documentoNumero' => '', // OrderAddress no tiene documento
                     'celular' => $shippingAddress->phone ?? '',
                 ]
             ],

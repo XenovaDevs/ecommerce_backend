@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Exceptions\Coupon;
+namespace App\Exceptions\Review;
 
 use App\Exceptions\BaseException;
 
-class InvalidCouponException extends BaseException
+class CannotReviewProductException extends BaseException
 {
     public function __construct(
-        string $message = 'Invalid coupon',
+        string $message = 'You must purchase this product before reviewing it',
         array $metadata = []
     ) {
         parent::__construct($message, $metadata);
@@ -17,12 +17,12 @@ class InvalidCouponException extends BaseException
 
     public function getErrorCode(): string
     {
-        return 'INVALID_COUPON';
+        return 'CANNOT_REVIEW_PRODUCT';
     }
 
     public function getHttpStatus(): int
     {
-        return 422;
+        return 403;
     }
 
     public function isOperational(): bool

@@ -21,8 +21,12 @@ use Illuminate\Support\Str;
  * @property string|null $short_description
  * @property float $price
  * @property float|null $sale_price
+ * @property float|null $compare_at_price
+ * @property float|null $cost_price
  * @property string $sku
+ * @property string|null $barcode
  * @property int $stock
+ * @property int $low_stock_threshold
  * @property int|null $category_id
  * @property bool $is_featured
  * @property bool $is_active
@@ -42,8 +46,12 @@ class Product extends Model
         'short_description',
         'price',
         'sale_price',
+        'compare_at_price',
+        'cost_price',
         'sku',
+        'barcode',
         'stock',
+        'low_stock_threshold',
         'category_id',
         'is_featured',
         'is_active',
@@ -58,7 +66,10 @@ class Product extends Model
         return [
             'price' => 'float',
             'sale_price' => 'float',
+            'compare_at_price' => 'float',
+            'cost_price' => 'float',
             'stock' => 'integer',
+            'low_stock_threshold' => 'integer',
             'is_featured' => 'boolean',
             'is_active' => 'boolean',
             'track_stock' => 'boolean',
@@ -101,6 +112,16 @@ class Product extends Model
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function approvedReviews(): HasMany
+    {
+        return $this->hasMany(Review::class)->where('is_approved', true);
     }
 
     public function activeVariants(): HasMany
@@ -146,6 +167,16 @@ class Product extends Model
             return (int) $this->variants()->where('is_active', true)->sum('stock');
         }
         return $this->stock;
+    }
+
+    public function getAverageRatingAttribute(): float
+    {
+        return (float) $this->approvedReviews()->avg('rating') ?? 0.0;
+    }
+
+    public function getReviewCountAttribute(): int
+    {
+        return $this->approvedReviews()->count();
     }
 
     public function decreaseStock(int $quantity, ?int $variantId = null): void

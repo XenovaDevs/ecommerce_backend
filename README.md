@@ -17,14 +17,16 @@ Backend API completo para un sistema de ecommerce con arquitectura limpia, sigui
 
 ### Módulos Implementados
 
-- ✅ **Authentication** - Registro, login, logout, refresh tokens
+- ✅ **Authentication** - Registro, login, logout, refresh tokens, password reset
 - ✅ **Settings** - Configuración flexible por tenant
 - ✅ **Categories** - Categorías jerárquicas de productos
 - ✅ **Products** - CRUD de productos con variantes e imágenes
-- ✅ **Cart** - Carrito de compras persistente
-- ✅ **Orders** - Sistema completo de pedidos
+- ✅ **Cart** - Carrito de compras persistente con cupones
+- ✅ **Coupons** - Sistema de cupones con validaciones (fixed/percentage)
+- ✅ **Orders** - Sistema completo de pedidos con impuestos
 - ✅ **Payments** - Integración con Mercado Pago
 - ✅ **Shipping** - Integración con Andreani
+- ✅ **Reviews** - Sistema de reseñas con verificación de compra
 - ✅ **Customers** - Gestión de clientes y direcciones
 - ✅ **Admin** - Panel administrativo completo
 - ✅ **Wishlist** - Lista de deseos

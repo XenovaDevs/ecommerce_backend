@@ -78,6 +78,7 @@ class AdminShipmentController extends Controller
 
             return $this->error(
                 $e->getMessage(),
+                $e->getErrorCode(),
                 $e->getHttpStatus(),
                 $e->getMetadata()
             );
@@ -90,6 +91,7 @@ class AdminShipmentController extends Controller
 
             return $this->error(
                 'An unexpected error occurred while creating shipment',
+                'SHIPMENT_CREATION_ERROR',
                 500
             );
         }

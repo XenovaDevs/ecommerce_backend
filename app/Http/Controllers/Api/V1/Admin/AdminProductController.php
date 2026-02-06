@@ -40,8 +40,12 @@ class AdminProductController extends Controller
             'short_description' => ['nullable', 'string', 'max:500'],
             'price' => ['required', 'numeric', 'gt:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
+            'compare_at_price' => ['nullable', 'numeric', 'min:0'],
+            'cost_price' => ['nullable', 'numeric', 'min:0'],
             'sku' => ['nullable', 'string', 'max:50', 'unique:products,sku'],
+            'barcode' => ['nullable', 'string', 'max:50'],
             'stock' => ['nullable', 'integer', 'min:0'],
+            'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'category_id' => ['required', 'integer', 'exists:categories,id'],
             'is_featured' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
@@ -90,8 +94,12 @@ class AdminProductController extends Controller
             'short_description' => ['nullable', 'string', 'max:500'],
             'price' => ['sometimes', 'numeric', 'min:0'],
             'sale_price' => ['nullable', 'numeric', 'min:0'],
+            'compare_at_price' => ['nullable', 'numeric', 'min:0'],
+            'cost_price' => ['nullable', 'numeric', 'min:0'],
             'sku' => ['sometimes', 'string', 'max:50', 'unique:products,sku,' . $id],
+            'barcode' => ['nullable', 'string', 'max:50'],
             'stock' => ['nullable', 'integer', 'min:0'],
+            'low_stock_threshold' => ['nullable', 'integer', 'min:0'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'is_featured' => ['nullable', 'boolean'],
             'is_active' => ['nullable', 'boolean'],
@@ -150,5 +158,19 @@ class AdminProductController extends Controller
         $this->productService->deleteImage($id, $imageId);
 
         return $this->noContent();
+    }
+
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer', 'exists:products,id'],
+        ]);
+
+        foreach ($validated['ids'] as $id) {
+            $this->productService->delete($id);
+        }
+
+        return $this->success(['message' => 'Products deleted successfully']);
     }
 }

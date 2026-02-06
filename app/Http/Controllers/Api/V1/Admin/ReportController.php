@@ -138,4 +138,29 @@ class ReportController extends Controller
             'top_customers' => $topCustomers,
         ]);
     }
+
+    public function export(Request $request): JsonResponse
+    {
+        $request->validate([
+            'type' => ['required', 'string', 'in:sales,products,customers'],
+            'format' => ['nullable', 'string', 'in:csv,xlsx'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+        ]);
+
+        $type = $request->input('type');
+        $format = $request->input('format', 'csv');
+
+        // Generate filename
+        $filename = "{$type}_report_" . now()->format('Y-m-d_His') . ".{$format}";
+
+        // For MVP, return a simple message
+        // In production, use Laravel Excel or similar
+        return $this->success([
+            'message' => 'Export functionality coming soon',
+            'filename' => $filename,
+            'type' => $type,
+            'format' => $format,
+        ]);
+    }
 }

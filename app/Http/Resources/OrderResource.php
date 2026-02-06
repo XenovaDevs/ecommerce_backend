@@ -14,14 +14,10 @@ class OrderResource extends JsonResource
         return [
             'id' => $this->id,
             'order_number' => $this->order_number,
-            'status' => [
-                'value' => $this->status->value,
-                'label' => $this->status->label(),
-            ],
-            'payment_status' => [
-                'value' => $this->payment_status->value,
-                'label' => $this->payment_status->label(),
-            ],
+            'customer' => new UserResource($this->whenLoaded('user')),
+            'status' => $this->status->value,
+            'payment_status' => $this->payment_status->value,
+            'payment_method' => $this->payment?->gateway ?? null,
             'subtotal' => $this->subtotal,
             'shipping_cost' => $this->shipping_cost,
             'tax' => $this->tax,
@@ -34,6 +30,7 @@ class OrderResource extends JsonResource
             'billing_address' => new OrderAddressResource($this->whenLoaded('billingAddress')),
             'payment' => new PaymentResource($this->whenLoaded('payment')),
             'shipment' => new ShipmentResource($this->whenLoaded('shipment')),
+            'status_history' => OrderStatusHistoryResource::collection($this->whenLoaded('statusHistory')),
             'paid_at' => $this->paid_at?->toIso8601String(),
             'shipped_at' => $this->shipped_at?->toIso8601String(),
             'delivered_at' => $this->delivered_at?->toIso8601String(),

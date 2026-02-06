@@ -55,7 +55,7 @@ class CartItem extends Model
 
     public function getTotalAttribute(): float
     {
-        return $this->current_price * $this->quantity;
+        return $this->price_at_addition * $this->quantity;
     }
 
     public function getAvailableStockAttribute(): int

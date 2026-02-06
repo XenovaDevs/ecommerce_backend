@@ -49,7 +49,7 @@ class CartController extends Controller
             $request->validated('variant_id')
         );
 
-        return $this->success(
+        return $this->created(
             new CartResource($cart->fresh()->load('items.product', 'items.variant')),
             SuccessMessages::CART['ITEM_ADDED']
         );
@@ -82,10 +82,7 @@ class CartController extends Controller
 
         $this->cartService->removeItem($cart, $id);
 
-        return $this->success(
-            new CartResource($cart->fresh()->load('items.product', 'items.variant')),
-            SuccessMessages::CART['ITEM_REMOVED']
-        );
+        return $this->noContent();
     }
 
     public function clear(Request $request): JsonResponse
@@ -100,6 +97,30 @@ class CartController extends Controller
         return $this->success(
             new CartResource($cart->fresh()->load('items.product', 'items.variant')),
             SuccessMessages::CART['CLEARED']
+        );
+    }
+
+    public function merge(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return $this->error('User must be authenticated to merge cart', 401);
+        }
+
+        $sessionId = $request->input('session_id') ?? $request->header('X-Session-ID');
+
+        if (!$sessionId) {
+            return $this->error('Session ID is required', 400);
+        }
+
+        $this->cartService->mergeGuestCart($user, $sessionId);
+
+        $cart = $this->cartService->getOrCreateCart($user);
+
+        return $this->success(
+            new CartResource($cart->fresh()->load('items.product', 'items.variant')),
+            SuccessMessages::CART['MERGED'] ?? 'Cart merged successfully'
         );
     }
 }

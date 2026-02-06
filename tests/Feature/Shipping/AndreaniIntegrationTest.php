@@ -7,58 +7,55 @@ namespace Tests\Feature\Shipping;
 use App\Domain\Enums\OrderStatus;
 use App\Domain\Enums\PaymentStatus;
 use App\Domain\Enums\ShippingStatus;
+use App\Domain\Enums\UserRole;
 use App\Models\Order;
 use App\Models\OrderAddress;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\User;
-use App\Services\Shipping\AndreaniApiClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
+use Tests\Traits\AuthHelpers;
 
-/**
- * Andreani Integration Feature Tests.
- * Tests the complete flow of shipping operations through the API.
- *
- * @group shipping
- * @group andreani
- * @group integration
- */
 class AndreaniIntegrationTest extends TestCase
 {
     use RefreshDatabase;
+    use AuthHelpers;
 
     private User $admin;
     private User $customer;
-    private Order $order;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        // Create admin user with shipment creation permission
         $this->admin = User::factory()->create([
             'email' => 'admin@test.com',
-            'is_admin' => true,
+            'role' => UserRole::ADMIN,
         ]);
 
-        // Create customer user
         $this->customer = User::factory()->create([
             'email' => 'customer@test.com',
         ]);
 
-        // Mock Andreani authentication
+        config([
+            'services.andreani.username' => 'TEST_USER',
+            'services.andreani.password' => 'TEST_PASS',
+            'services.andreani.contract_number' => 'TEST_CONTRACT',
+            'services.andreani.origin_postal_code' => '1425',
+        ]);
+
         $this->mockAndreaniAuth();
     }
 
-    /**
-     * Test: Can get shipping quote successfully.
-     */
+    // ──────────────────────────────────────────────
+    // Shipping Quote
+    // ──────────────────────────────────────────────
+
     public function test_can_get_shipping_quote_successfully(): void
     {
-        // Mock Andreani quote response
         Http::fake([
             '*/envios/tarifa' => Http::response([
                 'tarifas' => [
@@ -108,12 +105,8 @@ class AndreaniIntegrationTest extends TestCase
             ]);
     }
 
-    /**
-     * Test: Returns fallback quote when Andreani API fails.
-     */
     public function test_returns_fallback_quote_when_andreani_fails(): void
     {
-        // Mock Andreani failure
         Http::fake([
             '*/envios/tarifa' => Http::response(['error' => 'Service unavailable'], 503),
         ]);
@@ -123,7 +116,6 @@ class AndreaniIntegrationTest extends TestCase
             'weight' => 1.0,
         ]);
 
-        // Should still return 200 with fallback quote
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
@@ -140,14 +132,34 @@ class AndreaniIntegrationTest extends TestCase
             ]);
     }
 
-    /**
-     * Test: Admin can create shipment for order.
-     */
+    public function test_quote_validates_required_postal_code(): void
+    {
+        $response = $this->postJson('/api/v1/shipping/quote', [
+            'weight' => 1.0,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_quote_validates_postal_code_max_length(): void
+    {
+        $response = $this->postJson('/api/v1/shipping/quote', [
+            'postal_code' => '12345678901',
+            'weight' => 1.0,
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    // ──────────────────────────────────────────────
+    // Shipment Creation (Admin)
+    // ──────────────────────────────────────────────
+
     public function test_admin_can_create_shipment_for_order(): void
     {
+        $this->actingAsAdmin();
         $order = $this->createValidOrder();
 
-        // Mock Andreani shipment creation
         Http::fake([
             '*/envios' => Http::response([
                 'numeroAndreani' => 'AND123456789',
@@ -156,8 +168,7 @@ class AndreaniIntegrationTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/admin/shipments/orders/{$order->id}");
+        $response = $this->postJson("/api/v1/admin/shipments/orders/{$order->id}");
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -187,7 +198,6 @@ class AndreaniIntegrationTest extends TestCase
                 ],
             ]);
 
-        // Verify shipment was created in database
         $this->assertDatabaseHas('shipments', [
             'order_id' => $order->id,
             'provider' => 'andreani',
@@ -195,24 +205,20 @@ class AndreaniIntegrationTest extends TestCase
             'status' => ShippingStatus::SHIPPED->value,
         ]);
 
-        // Verify order status was updated
         $this->assertEquals(OrderStatus::SHIPPED, $order->fresh()->status);
     }
 
-    /**
-     * Test: Cannot create shipment for order without shipping address.
-     */
     public function test_cannot_create_shipment_without_shipping_address(): void
     {
+        $this->actingAsAdmin();
         $order = Order::factory()->create([
             'user_id' => $this->customer->id,
-            'status' => OrderStatus::PAID,
+            'status' => OrderStatus::CONFIRMED,
             'payment_status' => PaymentStatus::PAID,
-            'shipping_address_id' => null, // No shipping address
+            'shipping_address_id' => null,
         ]);
 
-        $response = $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/admin/shipments/orders/{$order->id}");
+        $response = $this->postJson("/api/v1/admin/shipments/orders/{$order->id}");
 
         $response->assertStatus(500)
             ->assertJson([
@@ -220,16 +226,13 @@ class AndreaniIntegrationTest extends TestCase
             ]);
     }
 
-    /**
-     * Test: Cannot create shipment for unpaid order.
-     */
     public function test_cannot_create_shipment_for_unpaid_order(): void
     {
+        $this->actingAsAdmin();
         $order = $this->createValidOrder();
         $order->update(['payment_status' => PaymentStatus::PENDING]);
 
-        $response = $this->actingAs($this->admin, 'sanctum')
-            ->postJson("/api/v1/admin/shipments/orders/{$order->id}");
+        $response = $this->postJson("/api/v1/admin/shipments/orders/{$order->id}");
 
         $response->assertStatus(500)
             ->assertJson([
@@ -237,14 +240,33 @@ class AndreaniIntegrationTest extends TestCase
             ]);
     }
 
-    /**
-     * Test: Can track shipment successfully.
-     */
+    public function test_cannot_create_duplicate_shipment_for_order(): void
+    {
+        $this->actingAsAdmin();
+        $order = $this->createValidOrder();
+        $order->update(['status' => OrderStatus::SHIPPED]);
+
+        Shipment::factory()->create([
+            'order_id' => $order->id,
+            'provider' => 'andreani',
+            'tracking_number' => 'AND111111',
+            'status' => ShippingStatus::SHIPPED,
+        ]);
+
+        $response = $this->postJson("/api/v1/admin/shipments/orders/{$order->id}");
+
+        $response->assertStatus(500)
+            ->assertJson(['success' => false]);
+    }
+
+    // ──────────────────────────────────────────────
+    // Tracking
+    // ──────────────────────────────────────────────
+
     public function test_can_track_shipment_successfully(): void
     {
         $trackingNumber = 'AND123456789';
 
-        // Mock Andreani tracking response
         Http::fake([
             "*/envios/{$trackingNumber}/trazas" => Http::response([
                 'trazas' => [
@@ -284,14 +306,10 @@ class AndreaniIntegrationTest extends TestCase
             ]);
     }
 
-    /**
-     * Test: Returns error when tracking number not found.
-     */
     public function test_returns_error_when_tracking_number_not_found(): void
     {
         $trackingNumber = 'INVALID123';
 
-        // Mock Andreani 404 response
         Http::fake([
             "*/envios/{$trackingNumber}/trazas" => Http::response([
                 'error' => 'Tracking number not found',
@@ -306,9 +324,10 @@ class AndreaniIntegrationTest extends TestCase
             ]);
     }
 
-    /**
-     * Test: Guest cannot access admin shipment creation endpoint.
-     */
+    // ──────────────────────────────────────────────
+    // Authorization
+    // ──────────────────────────────────────────────
+
     public function test_guest_cannot_access_admin_shipment_creation(): void
     {
         $order = $this->createValidOrder();
@@ -318,9 +337,6 @@ class AndreaniIntegrationTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    /**
-     * Test: Regular user cannot create shipment (admin only).
-     */
     public function test_regular_user_cannot_create_shipment(): void
     {
         $order = $this->createValidOrder();
@@ -331,9 +347,10 @@ class AndreaniIntegrationTest extends TestCase
         $response->assertForbidden();
     }
 
-    /**
-     * Helper: Create a valid order ready for shipment.
-     */
+    // ──────────────────────────────────────────────
+    // Helpers
+    // ──────────────────────────────────────────────
+
     private function createValidOrder(): Order
     {
         $product = Product::factory()->create([
@@ -351,7 +368,7 @@ class AndreaniIntegrationTest extends TestCase
 
         $order = Order::factory()->create([
             'user_id' => $this->customer->id,
-            'status' => OrderStatus::PAID,
+            'status' => OrderStatus::CONFIRMED,
             'payment_status' => PaymentStatus::PAID,
             'shipping_address_id' => $shippingAddress->id,
             'total' => 12500,
@@ -367,9 +384,6 @@ class AndreaniIntegrationTest extends TestCase
         return $order;
     }
 
-    /**
-     * Helper: Mock Andreani authentication.
-     */
     private function mockAndreaniAuth(): void
     {
         Http::fake([

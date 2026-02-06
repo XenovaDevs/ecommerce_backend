@@ -100,4 +100,11 @@ class AdminSettingController extends Controller
 
         return $this->noContent();
     }
+
+    public function getByGroup(string $group): JsonResponse
+    {
+        $settings = Setting::where('group', $group)->get();
+
+        return $this->success(SettingResource::collection($settings));
+    }
 }

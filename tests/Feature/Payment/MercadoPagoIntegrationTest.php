@@ -14,14 +14,10 @@ use App\Models\User;
 use App\Services\Payment\MercadoPagoService;
 use App\Services\Payment\DTOs\PaymentPreferenceResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
-/**
- * @ai-context Integration tests for Mercado Pago payment flow.
- *             Tests cover the complete payment lifecycle from preference creation
- *             to webhook processing.
- */
 class MercadoPagoIntegrationTest extends TestCase
 {
     use RefreshDatabase;
@@ -33,16 +29,13 @@ class MercadoPagoIntegrationTest extends TestCase
     {
         parent::setUp();
 
-        // Create test user
         $this->user = User::factory()->create();
 
-        // Create test product
         $product = Product::factory()->create([
             'price' => 1000.00,
             'stock' => 10,
         ]);
 
-        // Create test order
         $this->order = Order::factory()->create([
             'user_id' => $this->user->id,
             'status' => OrderStatus::PENDING,
@@ -60,20 +53,25 @@ class MercadoPagoIntegrationTest extends TestCase
             'name' => $product->name,
         ]);
 
-        // Set required config values
         config([
             'services.mercadopago.access_token' => 'TEST_ACCESS_TOKEN',
             'services.mercadopago.success_url' => 'http://localhost:3000/payment/success',
             'services.mercadopago.failure_url' => 'http://localhost:3000/payment/failure',
             'services.mercadopago.pending_url' => 'http://localhost:3000/payment/pending',
             'services.mercadopago.notification_url' => 'http://localhost:8000/api/v1/webhooks/mercadopago',
+            'services.andreani.username' => 'TEST_USER',
+            'services.andreani.password' => 'TEST_PASS',
+            'services.andreani.contract_number' => 'TEST_CONTRACT',
+            'services.andreani.origin_postal_code' => '1425',
         ]);
     }
 
-    /** @test */
-    public function it_creates_payment_preference_successfully(): void
+    // ──────────────────────────────────────────────
+    // Payment Preference Creation
+    // ──────────────────────────────────────────────
+
+    public function test_creates_payment_preference_successfully(): void
     {
-        // Mock MercadoPagoService
         $mockResponse = new PaymentPreferenceResponse(
             preferenceId: 'test-preference-id',
             initPoint: 'https://www.mercadopago.com/checkout/test',
@@ -86,13 +84,11 @@ class MercadoPagoIntegrationTest extends TestCase
                 ->andReturn($mockResponse);
         });
 
-        // Make request
         $response = $this->actingAs($this->user)
-            ->postJson('/api/v1/payments', [
+            ->postJson('/api/v1/payments/create', [
                 'order_id' => $this->order->id,
             ]);
 
-        // Assert response
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data' => [
@@ -103,7 +99,6 @@ class MercadoPagoIntegrationTest extends TestCase
                 ],
             ]);
 
-        // Assert payment was created
         $this->assertDatabaseHas('payments', [
             'order_id' => $this->order->id,
             'gateway' => 'mercado_pago',
@@ -112,45 +107,66 @@ class MercadoPagoIntegrationTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function it_prevents_creating_payment_for_already_paid_order(): void
+    public function test_prevents_creating_payment_for_already_paid_order(): void
     {
-        // Mark order as already paid
         $this->order->update(['payment_status' => PaymentStatus::PAID]);
 
-        // Attempt to create payment
         $response = $this->actingAs($this->user)
-            ->postJson('/api/v1/payments', [
+            ->postJson('/api/v1/payments/create', [
                 'order_id' => $this->order->id,
             ]);
 
-        // Assert error response
-        $response->assertStatus(422)
+        $response->assertStatus(409)
             ->assertJsonFragment([
                 'code' => 'ORDER_ALREADY_PROCESSED',
             ]);
     }
 
-    /** @test */
-    public function it_prevents_creating_payment_for_another_users_order(): void
+    public function test_prevents_creating_payment_for_another_users_order(): void
     {
-        // Create another user
         $otherUser = User::factory()->create();
 
-        // Attempt to create payment for other user's order
         $response = $this->actingAs($otherUser)
-            ->postJson('/api/v1/payments', [
+            ->postJson('/api/v1/payments/create', [
                 'order_id' => $this->order->id,
             ]);
 
-        // Assert not found
         $response->assertStatus(404);
     }
 
-    /** @test */
-    public function it_retrieves_payment_status(): void
+    public function test_prevents_creating_payment_without_order_id(): void
     {
-        // Create a payment
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v1/payments/create', []);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_prevents_creating_payment_for_nonexistent_order(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v1/payments/create', [
+                'order_id' => 99999,
+            ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_unauthenticated_user_cannot_create_payment(): void
+    {
+        $response = $this->postJson('/api/v1/payments/create', [
+            'order_id' => $this->order->id,
+        ]);
+
+        $response->assertUnauthorized();
+    }
+
+    // ──────────────────────────────────────────────
+    // Payment Status
+    // ──────────────────────────────────────────────
+
+    public function test_retrieves_payment_status(): void
+    {
         $payment = Payment::factory()->create([
             'order_id' => $this->order->id,
             'gateway' => 'mercado_pago',
@@ -159,11 +175,9 @@ class MercadoPagoIntegrationTest extends TestCase
             'currency' => 'ARS',
         ]);
 
-        // Request payment status
         $response = $this->actingAs($this->user)
             ->getJson("/api/v1/payments/{$payment->id}/status");
 
-        // Assert response
         $response->assertStatus(200)
             ->assertJson([
                 'data' => [
@@ -177,21 +191,19 @@ class MercadoPagoIntegrationTest extends TestCase
             ]);
     }
 
-    /** @test */
-    public function it_syncs_payment_status_with_gateway_when_requested(): void
+    public function test_syncs_payment_status_with_gateway_when_requested(): void
     {
-        // Create a payment with Mercado Pago payment ID
         $payment = Payment::factory()->create([
             'order_id' => $this->order->id,
             'gateway' => 'mercado_pago',
             'status' => PaymentStatus::PENDING,
             'amount' => $this->order->total,
             'currency' => 'ARS',
+            'external_id' => 'pref-123',
             'metadata' => ['mp_payment_id' => '12345678'],
         ]);
 
-        // Mock MercadoPagoService to return approved payment
-        $this->mock(MercadoPagoService::class, function ($mock) {
+        $this->mock(MercadoPagoService::class, function ($mock) use ($payment) {
             $mock->shouldReceive('getPayment')
                 ->once()
                 ->with('12345678')
@@ -199,7 +211,7 @@ class MercadoPagoIntegrationTest extends TestCase
                     'id' => '12345678',
                     'status' => 'approved',
                     'status_detail' => 'accredited',
-                    'external_reference' => '1',
+                    'external_reference' => (string) $payment->id,
                     'transaction_amount' => 1210.00,
                     'currency_id' => 'ARS',
                     'date_approved' => '2024-01-31 10:00:00',
@@ -213,11 +225,11 @@ class MercadoPagoIntegrationTest extends TestCase
                 ->andReturn('paid');
         });
 
-        // Request payment status with sync
+        Event::fake();
+
         $response = $this->actingAs($this->user)
             ->getJson("/api/v1/payments/{$payment->id}/status?sync=true");
 
-        // Assert response
         $response->assertStatus(200)
             ->assertJson([
                 'data' => [
@@ -225,20 +237,21 @@ class MercadoPagoIntegrationTest extends TestCase
                 ],
             ]);
 
-        // Assert payment was updated
         $this->assertDatabaseHas('payments', [
             'id' => $payment->id,
             'status' => PaymentStatus::PAID->value,
         ]);
     }
 
-    /** @test */
-    public function it_processes_mercado_pago_webhook_successfully(): void
-    {
-        Log::shouldReceive('info')->andReturn(null);
-        Log::shouldReceive('debug')->andReturn(null);
+    // ──────────────────────────────────────────────
+    // Webhook Processing
+    // ──────────────────────────────────────────────
 
-        // Create a payment
+    public function test_processes_webhook_with_approved_payment(): void
+    {
+        Log::spy();
+        Event::fake();
+
         $payment = Payment::factory()->create([
             'order_id' => $this->order->id,
             'gateway' => 'mercado_pago',
@@ -247,7 +260,6 @@ class MercadoPagoIntegrationTest extends TestCase
             'currency' => 'ARS',
         ]);
 
-        // Mock MercadoPagoService
         $this->mock(MercadoPagoService::class, function ($mock) use ($payment) {
             $mock->shouldReceive('validateWebhookSignature')
                 ->andReturn(true);
@@ -273,26 +285,165 @@ class MercadoPagoIntegrationTest extends TestCase
                 ->andReturn('paid');
         });
 
-        // Send webhook
         $response = $this->postJson('/api/v1/webhooks/mercadopago', [
             'type' => 'payment',
             'action' => 'payment.updated',
-            'data' => [
-                'id' => '12345678',
-            ],
+            'data' => ['id' => '12345678'],
         ]);
 
-        // Assert webhook accepted
         $response->assertStatus(200)
             ->assertJson(['status' => 'ok']);
 
-        // Assert payment was updated
         $this->assertDatabaseHas('payments', [
             'id' => $payment->id,
             'status' => PaymentStatus::PAID->value,
         ]);
 
-        // Assert order was marked as paid
+        $this->assertDatabaseHas('orders', [
+            'id' => $this->order->id,
+            'payment_status' => PaymentStatus::PAID->value,
+        ]);
+    }
+
+    public function test_processes_webhook_with_rejected_payment(): void
+    {
+        Log::spy();
+
+        $payment = Payment::factory()->create([
+            'order_id' => $this->order->id,
+            'gateway' => 'mercado_pago',
+            'status' => PaymentStatus::PENDING,
+            'amount' => $this->order->total,
+            'currency' => 'ARS',
+        ]);
+
+        $this->mock(MercadoPagoService::class, function ($mock) use ($payment) {
+            $mock->shouldReceive('validateWebhookSignature')
+                ->andReturn(true);
+
+            $mock->shouldReceive('getPayment')
+                ->once()
+                ->with('99999')
+                ->andReturn([
+                    'id' => '99999',
+                    'status' => 'rejected',
+                    'status_detail' => 'cc_rejected_insufficient_amount',
+                    'external_reference' => (string) $payment->id,
+                    'transaction_amount' => 1210.00,
+                    'currency_id' => 'ARS',
+                    'date_approved' => null,
+                    'payer' => ['email' => 'test@example.com'],
+                    'payment_method_id' => 'credit_card',
+                    'payment_type_id' => 'credit_card',
+                ]);
+
+            $mock->shouldReceive('mapPaymentStatus')
+                ->with('rejected')
+                ->andReturn('failed');
+        });
+
+        $response = $this->postJson('/api/v1/webhooks/mercadopago', [
+            'type' => 'payment',
+            'action' => 'payment.updated',
+            'data' => ['id' => '99999'],
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => PaymentStatus::FAILED->value,
+        ]);
+    }
+
+    public function test_webhook_ignores_non_payment_type(): void
+    {
+        Log::spy();
+
+        $this->mock(MercadoPagoService::class, function ($mock) {
+            $mock->shouldReceive('validateWebhookSignature')
+                ->andReturn(true);
+
+            $mock->shouldNotReceive('getPayment');
+        });
+
+        $response = $this->postJson('/api/v1/webhooks/mercadopago', [
+            'type' => 'merchant_order',
+            'action' => 'merchant_order.updated',
+            'data' => ['id' => '12345678'],
+        ]);
+
+        $response->assertStatus(200);
+    }
+
+    public function test_webhook_rejects_invalid_signature(): void
+    {
+        Log::spy();
+
+        $this->mock(MercadoPagoService::class, function ($mock) {
+            $mock->shouldReceive('validateWebhookSignature')
+                ->andReturn(false);
+        });
+
+        $response = $this->postJson('/api/v1/webhooks/mercadopago', [
+            'type' => 'payment',
+            'action' => 'payment.updated',
+            'data' => ['id' => '12345678'],
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJson(['error' => 'Invalid signature']);
+    }
+
+    public function test_webhook_idempotency_does_not_double_process(): void
+    {
+        Log::spy();
+        Event::fake();
+
+        $payment = Payment::factory()->create([
+            'order_id' => $this->order->id,
+            'gateway' => 'mercado_pago',
+            'status' => PaymentStatus::PAID,
+            'amount' => $this->order->total,
+            'currency' => 'ARS',
+        ]);
+
+        $this->order->update(['payment_status' => PaymentStatus::PAID]);
+
+        $this->mock(MercadoPagoService::class, function ($mock) use ($payment) {
+            $mock->shouldReceive('validateWebhookSignature')
+                ->andReturn(true);
+
+            $mock->shouldReceive('getPayment')
+                ->once()
+                ->with('12345678')
+                ->andReturn([
+                    'id' => '12345678',
+                    'status' => 'approved',
+                    'status_detail' => 'accredited',
+                    'external_reference' => (string) $payment->id,
+                    'transaction_amount' => 1210.00,
+                    'currency_id' => 'ARS',
+                    'date_approved' => '2024-01-31 10:00:00',
+                    'payer' => ['email' => 'test@example.com'],
+                    'payment_method_id' => 'credit_card',
+                    'payment_type_id' => 'credit_card',
+                ]);
+
+            $mock->shouldReceive('mapPaymentStatus')
+                ->with('approved')
+                ->andReturn('paid');
+        });
+
+        $response = $this->postJson('/api/v1/webhooks/mercadopago', [
+            'type' => 'payment',
+            'action' => 'payment.updated',
+            'data' => ['id' => '12345678'],
+        ]);
+
+        $response->assertStatus(200);
+
+        // Order should still be paid, no duplicate event
         $this->assertDatabaseHas('orders', [
             'id' => $this->order->id,
             'payment_status' => PaymentStatus::PAID->value,

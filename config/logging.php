@@ -118,6 +118,30 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'mercadopago' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/mercadopago.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        'andreani' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/andreani.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
+        'webhooks' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/webhooks.log'),
+            'level' => env('LOG_LEVEL', 'info'),
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
         'null' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,

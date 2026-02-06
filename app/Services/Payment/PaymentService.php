@@ -10,6 +10,7 @@ use App\Exceptions\Domain\EntityNotFoundException;
 use App\Exceptions\Domain\InvalidOperationException;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\Payment\DTOs\PaymentPreferenceRequest;
 use Illuminate\Support\Facades\DB;

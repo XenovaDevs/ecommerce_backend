@@ -44,8 +44,8 @@ class WishlistController extends Controller
             return $this->error(
                 'Product already in wishlist',
                 'DUPLICATE_WISHLIST_ITEM',
-                ['product_id' => ['This product is already in your wishlist']],
-                422
+                422,
+                ['product_id' => ['This product is already in your wishlist']]
             );
         }
 

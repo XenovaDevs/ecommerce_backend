@@ -50,4 +50,14 @@ class ProductController extends Controller
             new ProductResource($product)
         );
     }
+
+    public function related(int $id, Request $request): JsonResponse
+    {
+        $limit = (int) $request->query('limit', 4);
+        $relatedProducts = $this->productService->getRelated($id, $limit);
+
+        return $this->success(
+            ProductResource::collection($relatedProducts)
+        );
+    }
 }

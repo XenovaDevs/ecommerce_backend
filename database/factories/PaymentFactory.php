@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Domain\Enums\PaymentMethod;
 use App\Domain\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\Payment;
@@ -16,7 +15,7 @@ class PaymentFactory extends Factory
     {
         return [
             'order_id' => Order::factory(),
-            'method' => PaymentMethod::CREDIT_CARD,
+            'gateway' => 'mercado_pago',
             'status' => PaymentStatus::PENDING,
             'amount' => fake()->randomFloat(2, 50, 1000),
             'currency' => 'ARS',
@@ -43,7 +42,7 @@ class PaymentFactory extends Factory
     public function mercadopago(): static
     {
         return $this->state(fn (array $attributes) => [
-            'method' => PaymentMethod::MERCADOPAGO,
+            'gateway' => 'mercado_pago',
         ]);
     }
 }

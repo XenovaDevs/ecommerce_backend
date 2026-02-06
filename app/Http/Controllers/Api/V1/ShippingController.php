@@ -82,6 +82,7 @@ class ShippingController extends Controller
 
             return $this->error(
                 'Unable to retrieve tracking information. Please try again later.',
+                'TRACKING_NOT_FOUND',
                 404,
                 ['tracking_number' => $trackingNumber]
             );

@@ -24,7 +24,7 @@ final class RolePermissions
             'dashboard.view',
             'products.view', 'products.create', 'products.update', 'products.delete', 'products.manage-images',
             'categories.view', 'categories.create', 'categories.update', 'categories.delete',
-            'orders.view-all', 'orders.update-status', 'orders.cancel', 'orders.delete',
+            'orders.view-all', 'orders.update-status', 'orders.cancel', 'orders.delete', 'orders.create-shipment',
             'customers.view', 'customers.create', 'customers.update', 'customers.delete',
             'reports.view-sales', 'reports.view-products', 'reports.view-customers',
             'settings.view', 'settings.update',

@@ -54,6 +54,18 @@ class ProductService
         return $product;
     }
 
+    public function getRelated(int $productId, int $limit = 4): Collection
+    {
+        $product = $this->findById($productId);
+
+        return Product::where('id', '!=', $productId)
+            ->where('category_id', $product->category_id)
+            ->where('is_active', true)
+            ->inRandomOrder()
+            ->limit($limit)
+            ->get();
+    }
+
     public function create(CreateProductDTO $dto): Product
     {
         return $this->repository->create($dto->toArray());

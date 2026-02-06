@@ -88,4 +88,17 @@ class AdminOrderController extends Controller
 
         return $this->success(new OrderResource($order));
     }
+
+    public function stats(Request $request): JsonResponse
+    {
+        $stats = [
+            'total_orders' => Order::count(),
+            'pending_orders' => Order::where('status', OrderStatus::PENDING)->count(),
+            'processing_orders' => Order::where('status', OrderStatus::PROCESSING)->count(),
+            'completed_orders' => Order::where('status', OrderStatus::DELIVERED)->count(),
+            'total_revenue' => (float) Order::where('status', OrderStatus::DELIVERED)->sum('total'),
+        ];
+
+        return $this->success($stats);
+    }
 }

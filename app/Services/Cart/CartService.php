@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Cart;
 
 use App\Exceptions\Domain\EntityNotFoundException;
+use App\Exceptions\Domain\InsufficientStockException;
 use App\Exceptions\Domain\InvalidOperationException;
 use App\Models\Cart;
 use App\Models\CartItem;
@@ -169,10 +170,10 @@ class CartService
             : $product->stock;
 
         if ($quantity > $availableStock) {
-            throw new InvalidOperationException(
-                "Only {$availableStock} units available",
-                'INSUFFICIENT_STOCK',
-                ['available' => $availableStock, 'requested' => $quantity]
+            throw new InsufficientStockException(
+                $product->name,
+                $quantity,
+                $availableStock
             );
         }
     }

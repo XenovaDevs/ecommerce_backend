@@ -13,12 +13,10 @@ class OrderAddressFactory extends Factory
     public function definition(): array
     {
         return [
-            'order_id' => Order::factory(),
             'type' => fake()->randomElement(['shipping', 'billing']),
-            'first_name' => fake()->firstName(),
-            'last_name' => fake()->lastName(),
+            'name' => fake()->name(),
             'phone' => fake()->phoneNumber(),
-            'address_line_1' => fake()->streetAddress(),
+            'address' => fake()->streetAddress(),
             'address_line_2' => fake()->optional()->secondaryAddress(),
             'city' => fake()->city(),
             'state' => fake()->state(),

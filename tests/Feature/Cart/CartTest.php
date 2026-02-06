@@ -46,7 +46,7 @@ class CartTest extends TestCase
                 'quantity' => 1,
             ]);
 
-        $response->assertStatus(400);
+        $response->assertStatus(422);
     }
 
     public function test_can_get_current_cart(): void
