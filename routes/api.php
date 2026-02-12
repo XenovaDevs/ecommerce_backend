@@ -135,6 +135,7 @@ Route::prefix('v1')->group(function () {
 
             // Orders
             Route::get('/orders', [OrderController::class, 'index']);
+            Route::get('/orders/number/{orderNumber}', [OrderController::class, 'showByNumber']);
             Route::get('/orders/{id}', [OrderController::class, 'show']);
             Route::post('/orders/{id}/cancel', [OrderController::class, 'cancel']);
         });
@@ -192,7 +193,7 @@ Route::prefix('v1')->group(function () {
     | Admin Routes
     |--------------------------------------------------------------------------
     */
-    Route::prefix('admin')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('admin')->middleware(['auth:sanctum', 'staff'])->group(function () {
         // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->middleware('ability:dashboard.view');

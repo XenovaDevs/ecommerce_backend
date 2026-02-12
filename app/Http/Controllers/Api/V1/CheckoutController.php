@@ -48,7 +48,7 @@ class CheckoutController extends Controller
             ]);
         }
 
-        return $this->error('Cart validation failed', 422, [
+        return $this->error('Cart validation failed', 'CART_VALIDATION_FAILED', 422, [
             'valid' => false,
             'errors' => $errors,
         ]);

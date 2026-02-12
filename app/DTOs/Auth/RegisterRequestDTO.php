@@ -18,7 +18,7 @@ final readonly class RegisterRequestDTO
     public static function fromRequest(Request $request): self
     {
         return new self(
-            name: $request->validated('name'),
+            name: trim($request->validated('first_name') . ' ' . $request->validated('last_name')),
             email: $request->validated('email'),
             password: $request->validated('password'),
             phone: $request->validated('phone'),

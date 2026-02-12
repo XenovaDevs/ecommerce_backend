@@ -15,19 +15,21 @@ class LoginTest extends TestCase
     {
         $user = User::factory()->create([
             'email' => 'test@example.com',
-            'password' => bcrypt('password123'),
+            'password' => bcrypt('Password1!'),
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
             'email' => 'test@example.com',
-            'password' => 'password123',
+            'password' => 'Password1!',
         ]);
 
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
-                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in'],
+                'data' => ['access_token', 'token_type', 'expires_in'],
             ]);
+
+        $response->assertCookie(config('auth.refresh_cookie_name', 'refresh_token'));
     }
 
     public function test_user_cannot_login_with_invalid_credentials(): void

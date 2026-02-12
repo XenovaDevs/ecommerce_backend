@@ -112,4 +112,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Refresh Token Cookie
+    |--------------------------------------------------------------------------
+    */
+    'refresh_cookie_name' => env('AUTH_REFRESH_COOKIE_NAME', 'refresh_token'),
+    'refresh_cookie_path' => env('AUTH_REFRESH_COOKIE_PATH', '/api/v1/auth'),
+    'refresh_cookie_domain' => env('AUTH_REFRESH_COOKIE_DOMAIN'),
+    'refresh_cookie_secure' => env('AUTH_REFRESH_COOKIE_SECURE', env('APP_ENV') === 'production'),
+    'refresh_cookie_same_site' => env('AUTH_REFRESH_COOKIE_SAME_SITE', 'strict'),
+    'refresh_token_ttl_minutes' => env('AUTH_REFRESH_TOKEN_TTL_MINUTES', 10080),
+
 ];

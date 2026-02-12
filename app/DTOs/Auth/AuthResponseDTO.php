@@ -15,9 +15,9 @@ final readonly class AuthResponseDTO
         public int $expiresIn,
     ) {}
 
-    public function toArray(): array
+    public function toArray(bool $includeRefreshToken = true): array
     {
-        return [
+        $payload = [
             'user' => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
@@ -26,9 +26,14 @@ final readonly class AuthResponseDTO
                 'role' => $this->user->role->value,
             ],
             'access_token' => $this->accessToken,
-            'refresh_token' => $this->refreshToken,
             'token_type' => 'Bearer',
             'expires_in' => $this->expiresIn,
         ];
+
+        if ($includeRefreshToken) {
+            $payload['refresh_token'] = $this->refreshToken;
+        }
+
+        return $payload;
     }
 }

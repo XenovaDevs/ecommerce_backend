@@ -52,16 +52,7 @@ class AdminOrderController extends Controller
         $perPage = (int) $request->input('per_page', 15);
         $orders = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => OrderResource::collection($orders)->resolve(),
-            'meta' => [
-                'current_page' => $orders->currentPage(),
-                'total' => $orders->total(),
-                'per_page' => $orders->perPage(),
-                'last_page' => $orders->lastPage(),
-            ],
-        ]);
+        return $this->paginated(OrderResource::collection($orders));
     }
 
     public function show(int $id): JsonResponse

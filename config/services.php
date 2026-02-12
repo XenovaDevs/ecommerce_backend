@@ -39,9 +39,9 @@ return [
         'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
         'public_key' => env('MERCADOPAGO_PUBLIC_KEY'),
         'webhook_secret' => env('MERCADOPAGO_WEBHOOK_SECRET'),
-        'success_url' => env('MERCADOPAGO_SUCCESS_URL', env('FRONTEND_URL', 'http://localhost:3000') . '/payment/success'),
-        'failure_url' => env('MERCADOPAGO_FAILURE_URL', env('FRONTEND_URL', 'http://localhost:3000') . '/payment/failure'),
-        'pending_url' => env('MERCADOPAGO_PENDING_URL', env('FRONTEND_URL', 'http://localhost:3000') . '/payment/pending'),
+        'success_url' => env('MERCADOPAGO_SUCCESS_URL', env('FRONTEND_URL', 'http://localhost:3000') . '/checkout/success'),
+        'failure_url' => env('MERCADOPAGO_FAILURE_URL', env('FRONTEND_URL', 'http://localhost:3000') . '/checkout/failure'),
+        'pending_url' => env('MERCADOPAGO_PENDING_URL', env('FRONTEND_URL', 'http://localhost:3000') . '/checkout/pending'),
         'notification_url' => env('MERCADOPAGO_NOTIFICATION_URL', env('APP_URL', 'http://localhost:8000') . '/api/v1/webhooks/mercadopago'),
     ],
 

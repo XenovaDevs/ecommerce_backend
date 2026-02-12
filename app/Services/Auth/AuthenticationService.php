@@ -23,6 +23,46 @@ use Illuminate\Support\Str;
  */
 class AuthenticationService implements AuthServiceInterface
 {
+    private const ADMIN_ABILITIES = [
+        'dashboard.view',
+        'categories.view',
+        'categories.create',
+        'categories.update',
+        'categories.delete',
+        'products.view',
+        'products.create',
+        'products.update',
+        'products.delete',
+        'products.manage-images',
+        'orders.view-all',
+        'orders.view-own',
+        'orders.create',
+        'orders.update-status',
+        'orders.delete',
+        'orders.cancel',
+        'orders.create-shipment',
+        'customers.view',
+        'settings.view',
+        'settings.update',
+        'reports.view-sales',
+        'reports.view-products',
+        'reports.view-customers',
+        'contacts.view',
+        'contacts.reply',
+        'contacts.update-status',
+        'reviews.manage',
+    ];
+
+    private const CUSTOMER_ABILITIES = [
+        'orders.view-own',
+        'orders.create',
+        'orders.cancel',
+        'wishlist.manage',
+        'reviews.create',
+        'reviews.update-own',
+        'reviews.delete-own',
+    ];
+
     public function __construct(
         private readonly UserRepositoryInterface $userRepository
     ) {}
@@ -58,12 +98,17 @@ class AuthenticationService implements AuthServiceInterface
 
     public function logout(User $user): void
     {
-        $user->currentAccessToken()->delete();
+        $user->tokens()->delete();
+
         $user->refreshTokens()->where('revoked', false)->update(['revoked' => true]);
     }
 
-    public function refresh(string $refreshToken): AuthResponseDTO
+    public function refresh(?string $refreshToken): AuthResponseDTO
     {
+        if (!$refreshToken) {
+            throw new TokenExpiredException();
+        }
+
         $hashedToken = hash('sha256', $refreshToken);
         $token = RefreshToken::where('token', $hashedToken)
             ->where('revoked', false)
@@ -87,9 +132,11 @@ class AuthenticationService implements AuthServiceInterface
 
     private function createAuthResponse(User $user): AuthResponseDTO
     {
+        $abilities = $this->getAbilitiesForRole($user->role);
+
         $accessToken = $user->createToken(
             'access-token',
-            ['*'],
+            $abilities,
             now()->addMinutes(SecurityConstants::ACCESS_TOKEN_TTL)
         );
 
@@ -106,5 +153,17 @@ class AuthenticationService implements AuthServiceInterface
             refreshToken: $plainRefreshToken,
             expiresIn: SecurityConstants::ACCESS_TOKEN_TTL * 60,
         );
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getAbilitiesForRole(UserRole $role): array
+    {
+        if ($role->isStaff()) {
+            return self::ADMIN_ABILITIES;
+        }
+
+        return self::CUSTOMER_ABILITIES;
     }
 }

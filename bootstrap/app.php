@@ -30,10 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Middleware aliases
         $middleware->alias([
             'ability' => \App\Http\Middleware\CheckAbility::class,
+            'staff' => \App\Http\Middleware\EnsureUserIsStaff::class,
         ]);
 
-        // Sanctum stateful domains for SPA authentication
-        $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Handle custom BaseException instances

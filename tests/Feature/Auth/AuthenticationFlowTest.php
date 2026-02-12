@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
+use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 use Tests\Traits\AssertValidationErrors;
 
@@ -13,24 +15,28 @@ class AuthenticationFlowTest extends TestCase
 {
     use RefreshDatabase, AssertValidationErrors;
 
+    private const VALID_PASSWORD = 'S9!xQ2#pL7@t';
+
     public function test_complete_authentication_flow(): void
     {
         // Register a new user
         $registerResponse = $this->postJson('/api/v1/auth/register', [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'last_name' => 'User',
             'email' => 'test@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
-        $registerResponse->assertOk()
+        $registerResponse->assertStatus(201)
             ->assertJsonStructure([
                 'success',
-                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in', 'user'],
+                'data' => ['access_token', 'token_type', 'expires_in', 'user'],
             ]);
 
         $accessToken = $registerResponse->json('data.access_token');
-        $refreshToken = $registerResponse->json('data.refresh_token');
+
+        $registerResponse->assertCookie(config('auth.refresh_cookie_name', 'refresh_token'));
 
         // Get authenticated user info
         $meResponse = $this->withToken($accessToken)
@@ -45,47 +51,50 @@ class AuthenticationFlowTest extends TestCase
 
         $logoutResponse->assertOk();
 
-        // Verify token is invalidated
-        $meAfterLogout = $this->withToken($accessToken)
-            ->getJson('/api/v1/auth/me');
-
-        $meAfterLogout->assertUnauthorized();
+        // Verify token is invalidated in storage
+        $accessTokenId = (int) explode('|', $accessToken)[0];
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'id' => $accessTokenId,
+        ]);
 
         // Login again
         $loginResponse = $this->postJson('/api/v1/auth/login', [
             'email' => 'test@example.com',
-            'password' => 'password123',
+            'password' => self::VALID_PASSWORD,
         ]);
 
         $loginResponse->assertOk()
             ->assertJsonStructure([
                 'success',
-                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in'],
+                'data' => ['access_token', 'token_type', 'expires_in'],
             ]);
+        $loginResponse->assertCookie(config('auth.refresh_cookie_name', 'refresh_token'));
     }
 
     public function test_refresh_token_works(): void
     {
         $user = User::factory()->create([
-            'password' => bcrypt('password123'),
+            'password' => bcrypt(self::VALID_PASSWORD),
         ]);
 
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
-            'email' => $user->email,
-            'password' => 'password123',
+        $plainRefreshToken = Str::random(64);
+        RefreshToken::create([
+            'user_id' => $user->id,
+            'token' => hash('sha256', $plainRefreshToken),
+            'revoked' => false,
+            'expires_at' => now()->addDays(7),
         ]);
-
-        $refreshToken = $loginResponse->json('data.refresh_token');
 
         $refreshResponse = $this->postJson('/api/v1/auth/refresh', [
-            'refresh_token' => $refreshToken,
+            'refresh_token' => $plainRefreshToken,
         ]);
 
         $refreshResponse->assertOk()
             ->assertJsonStructure([
                 'success',
-                'data' => ['access_token', 'refresh_token', 'token_type', 'expires_in'],
+                'data' => ['access_token', 'token_type', 'expires_in'],
             ]);
+        $refreshResponse->assertCookie(config('auth.refresh_cookie_name', 'refresh_token'));
     }
 
     public function test_cannot_register_with_existing_email(): void
@@ -93,10 +102,11 @@ class AuthenticationFlowTest extends TestCase
         User::factory()->create(['email' => 'existing@example.com']);
 
         $response = $this->postJson('/api/v1/auth/register', [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'last_name' => 'User',
             'email' => 'existing@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => self::VALID_PASSWORD,
+            'password_confirmation' => self::VALID_PASSWORD,
         ]);
 
         $response->assertStatus(422)
@@ -106,13 +116,13 @@ class AuthenticationFlowTest extends TestCase
     public function test_login_with_inactive_account_fails(): void
     {
         $user = User::factory()->create([
-            'password' => bcrypt('password123'),
+            'password' => bcrypt(self::VALID_PASSWORD),
             'is_active' => false,
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
             'email' => $user->email,
-            'password' => 'password123',
+            'password' => self::VALID_PASSWORD,
         ]);
 
         $response->assertStatus(401);
@@ -121,9 +131,10 @@ class AuthenticationFlowTest extends TestCase
     public function test_password_must_be_confirmed_on_register(): void
     {
         $response = $this->postJson('/api/v1/auth/register', [
-            'name' => 'Test User',
+            'first_name' => 'Test',
+            'last_name' => 'User',
             'email' => 'test@example.com',
-            'password' => 'password123',
+            'password' => self::VALID_PASSWORD,
             'password_confirmation' => 'different',
         ]);
 

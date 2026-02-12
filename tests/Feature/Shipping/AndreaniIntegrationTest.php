@@ -163,8 +163,8 @@ class AndreaniIntegrationTest extends TestCase
         Http::fake([
             '*/envios' => Http::response([
                 'numeroAndreani' => 'AND123456789',
-                'etiqueta' => 'https://andreani.com/labels/123456789.pdf',
-                'fechaEstimadaEntrega' => '2026-02-10',
+                'urlEtiqueta' => 'https://andreani.com/labels/123456789.pdf',
+                'fechaEntregaEstimada' => '2026-02-10',
             ], 200),
         ]);
 

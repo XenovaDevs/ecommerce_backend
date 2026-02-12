@@ -20,5 +20,5 @@ interface AuthServiceInterface
 
     public function logout(User $user): void;
 
-    public function refresh(string $refreshToken): AuthResponseDTO;
+    public function refresh(?string $refreshToken): AuthResponseDTO;
 }

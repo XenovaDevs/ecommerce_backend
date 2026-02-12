@@ -29,7 +29,7 @@ final class SecurityConstants
     /**
      * Access token TTL in minutes.
      */
-    public const ACCESS_TOKEN_TTL = 60; // 1 hour
+    public const ACCESS_TOKEN_TTL = 15; // 15 minutes
 
     /**
      * Refresh token TTL in days.

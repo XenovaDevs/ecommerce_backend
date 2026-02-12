@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\DTOs\Order\CreateOrderDTO;
+use App\Exceptions\Domain\EntityNotFoundException;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Order\CheckoutRequest;
 use App\Http\Resources\OrderResource;
-use App\Messages\SuccessMessages;
+use App\Models\Order;
 use App\Services\Order\OrderService;
 use App\Support\Traits\HasApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -42,20 +41,18 @@ class OrderController extends Controller
         return $this->success(new OrderResource($order));
     }
 
-    public function checkout(CheckoutRequest $request): JsonResponse
+    public function showByNumber(Request $request, string $orderNumber): JsonResponse
     {
-        $dto = CreateOrderDTO::fromRequest($request);
-        $result = $this->orderService->createFromCart($request->user(), $dto);
+        $order = Order::where('order_number', $orderNumber)
+            ->where('user_id', $request->user()->id)
+            ->with(['items', 'shippingAddress', 'billingAddress', 'payment', 'shipment'])
+            ->first();
 
-        $responseData = [
-            'order' => new OrderResource($result['order']),
-            'payment_url' => $result['payment_url'],
-        ];
+        if (!$order) {
+            throw new EntityNotFoundException('Order', $orderNumber);
+        }
 
-        return $this->created(
-            $responseData,
-            SuccessMessages::ORDER['CREATED']
-        );
+        return $this->success(new OrderResource($order));
     }
 
     public function cancel(Request $request, int $id): JsonResponse

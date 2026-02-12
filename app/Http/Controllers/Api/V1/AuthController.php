@@ -10,7 +10,6 @@ use App\DTOs\Auth\RegisterRequestDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Resources\UserResource;
@@ -19,6 +18,7 @@ use App\Services\Auth\PasswordResetService;
 use App\Support\Traits\HasApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 
 /**
  * @ai-context AuthController handles authentication API endpoints.
@@ -36,39 +36,50 @@ class AuthController extends Controller
     {
         $dto = RegisterRequestDTO::fromRequest($request);
         $response = $this->authService->register($dto);
-
-        return $this->created(
-            $response->toArray(),
+        $jsonResponse = $this->created(
+            $response->toArray(includeRefreshToken: false),
             SuccessMessages::AUTH['REGISTERED']
         );
+
+        return $this->withRefreshCookie($jsonResponse, $response->refreshToken);
     }
 
     public function login(LoginRequest $request): JsonResponse
     {
         $dto = LoginRequestDTO::fromRequest($request);
         $response = $this->authService->login($dto);
-
-        return $this->success(
-            $response->toArray(),
+        $jsonResponse = $this->success(
+            $response->toArray(includeRefreshToken: false),
             SuccessMessages::AUTH['LOGIN']
         );
+
+        return $this->withRefreshCookie($jsonResponse, $response->refreshToken);
     }
 
     public function logout(Request $request): JsonResponse
     {
         $this->authService->logout($request->user());
 
-        return $this->success(
+        $jsonResponse = $this->success(
             null,
             SuccessMessages::AUTH['LOGOUT']
         );
+
+        return $this->clearRefreshCookie($jsonResponse);
     }
 
-    public function refresh(RefreshTokenRequest $request): JsonResponse
+    public function refresh(Request $request): JsonResponse
     {
-        $response = $this->authService->refresh($request->validated('refresh_token'));
+        $refreshToken = $request->cookie($this->refreshCookieName())
+            ?? $request->input('refresh_token');
+        $response = $this->authService->refresh($refreshToken);
 
-        return $this->success($response->toArray());
+        $jsonResponse = $this->success(
+            $response->toArray(includeRefreshToken: false),
+            SuccessMessages::AUTH['TOKEN_REFRESHED']
+        );
+
+        return $this->withRefreshCookie($jsonResponse, $response->refreshToken);
     }
 
     public function me(Request $request): JsonResponse
@@ -107,5 +118,37 @@ class AuthController extends Controller
             null,
             SuccessMessages::AUTH['PASSWORD_RESET']
         );
+    }
+
+    private function withRefreshCookie(JsonResponse $response, string $refreshToken): JsonResponse
+    {
+        $minutes = (int) config('auth.refresh_token_ttl_minutes');
+
+        return $response->cookie(Cookie::make(
+            name: $this->refreshCookieName(),
+            value: $refreshToken,
+            minutes: $minutes,
+            path: config('auth.refresh_cookie_path'),
+            domain: config('auth.refresh_cookie_domain'),
+            secure: (bool) config('auth.refresh_cookie_secure'),
+            httpOnly: true,
+            raw: false,
+            sameSite: config('auth.refresh_cookie_same_site')
+        ));
+    }
+
+    private function clearRefreshCookie(JsonResponse $response): JsonResponse
+    {
+        $forgetCookie = Cookie::forget(
+            name: $this->refreshCookieName(),
+            path: config('auth.refresh_cookie_path'),
+            domain: config('auth.refresh_cookie_domain')
+        );
+        return $response->withoutCookie($forgetCookie);
+    }
+
+    private function refreshCookieName(): string
+    {
+        return (string) config('auth.refresh_cookie_name', 'refresh_token');
     }
 }
