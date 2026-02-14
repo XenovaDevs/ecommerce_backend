@@ -45,6 +45,30 @@ final readonly class PaymentPreferenceRequest
      */
     public static function fromOrder(Order $order, User $user, int $paymentId): self
     {
+        return self::fromOrderWithPayer(
+            $order,
+            $user->name,
+            $user->email,
+            $paymentId
+        );
+    }
+
+    /**
+     * Create PaymentPreferenceRequest from Order and payer details.
+     *
+     * @param Order $order
+     * @param string $payerName
+     * @param string $payerEmail
+     * @param int $paymentId
+     * @return self
+     */
+    public static function fromOrderWithPayer(
+        Order $order,
+        string $payerName,
+        string $payerEmail,
+        int $paymentId
+    ): self
+    {
         $items = $order->items->map(fn ($item) => [
             'id' => (string) $item->product_id,
             'title' => $item->name,
@@ -55,8 +79,8 @@ final readonly class PaymentPreferenceRequest
         ])->toArray();
 
         $payer = [
-            'name' => $user->name,
-            'email' => $user->email,
+            'name' => $payerName,
+            'email' => $payerEmail,
         ];
 
         $backUrls = [

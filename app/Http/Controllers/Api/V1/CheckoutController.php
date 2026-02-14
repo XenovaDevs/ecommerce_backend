@@ -15,6 +15,7 @@ use App\Services\Payment\PaymentService;
 use App\Support\Traits\HasApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * @ai-context CheckoutController handles checkout-specific API endpoints.
@@ -55,12 +56,76 @@ class CheckoutController extends Controller
     }
 
     /**
+     * Validate cart before guest checkout.
+     */
+    public function validateGuest(Request $request): JsonResponse
+    {
+        $sessionId = $request->header('X-Session-ID');
+
+        if (!$sessionId) {
+            return $this->error(
+                'Missing session ID for guest checkout',
+                'SESSION_ID_REQUIRED',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+
+        $cart = $this->cartService->getOrCreateCart(null, $sessionId);
+        $errors = $this->cartService->validateCart($cart);
+
+        if (empty($errors)) {
+            return $this->success([
+                'valid' => true,
+                'message' => 'Cart is valid',
+            ]);
+        }
+
+        return $this->error('Cart validation failed', 'CART_VALIDATION_FAILED', 422, [
+            'valid' => false,
+            'errors' => $errors,
+        ]);
+    }
+
+    /**
      * Process checkout and create order
      */
     public function process(CheckoutRequest $request): JsonResponse
     {
         $dto = CreateOrderDTO::fromRequest($request);
-        $result = $this->orderService->createFromCart($request->user(), $dto);
+        $result = $this->orderService->createFromCart(
+            $request->user(),
+            $dto,
+            $request->header('X-Session-ID')
+        );
+
+        $responseData = [
+            'order' => new OrderResource($result['order']),
+            'payment_url' => $result['payment_url'],
+        ];
+
+        return $this->created(
+            $responseData,
+            SuccessMessages::ORDER['CREATED']
+        );
+    }
+
+    /**
+     * Process guest checkout and create order from session cart.
+     */
+    public function processGuest(CheckoutRequest $request): JsonResponse
+    {
+        $sessionId = $request->header('X-Session-ID');
+
+        if (!$sessionId) {
+            return $this->error(
+                'Missing session ID for guest checkout',
+                'SESSION_ID_REQUIRED',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+
+        $dto = CreateOrderDTO::fromRequest($request);
+        $result = $this->orderService->createFromCart(null, $dto, $sessionId);
 
         $responseData = [
             'order' => new OrderResource($result['order']),

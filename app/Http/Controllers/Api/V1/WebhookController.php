@@ -32,18 +32,15 @@ class WebhookController extends Controller
      */
     public function mercadoPago(Request $request): JsonResponse
     {
-        // Step 1: Log incoming webhook
+        // Log only non-sensitive webhook metadata
         Log::info('[Webhook] Received Mercado Pago webhook', [
             'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
             'type' => $request->input('type'),
             'action' => $request->input('action'),
             'data_id' => $request->input('data.id'),
         ]);
 
-        // Step 2: Validate webhook signature for security
-        Log::debug('[Webhook] Validating webhook signature');
-
+        // Validate webhook signature for security
         if (!$this->paymentWebhookValidator->validateMercadoPagoWebhook($request)) {
             Log::warning('[Webhook] Mercado Pago webhook rejected - invalid signature', [
                 'ip' => $request->ip(),
@@ -56,12 +53,11 @@ class WebhookController extends Controller
             ], 401);
         }
 
-        Log::debug('[Webhook] Signature validated successfully');
-
-        // Step 3: Process the webhook
+        // Process the webhook
         try {
-            Log::info('[Webhook] Starting webhook processing', [
-                'payload' => $request->all(),
+            Log::info('[Webhook] Processing Mercado Pago webhook', [
+                'type' => $request->input('type'),
+                'data_id' => $request->input('data.id'),
             ]);
 
             $this->paymentService->processWebhook($request->all());
@@ -74,16 +70,15 @@ class WebhookController extends Controller
             return response()->json(['status' => 'ok']);
         } catch (\Exception $e) {
             Log::error('[Webhook] Mercado Pago webhook processing failed', [
+                'type' => $request->input('type'),
+                'data_id' => $request->input('data.id'),
                 'exception' => $e->getMessage(),
                 'exception_class' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'payload' => $request->all(),
             ]);
 
             // Return 200 to prevent Mercado Pago from retrying
-            // (we already logged the error for investigation)
             return response()->json([
                 'status' => 'error',
                 'message' => 'Webhook processing failed',
@@ -97,10 +92,11 @@ class WebhookController extends Controller
     public function andreani(Request $request): JsonResponse
     {
         try {
-            // Log incoming webhook
-            Log::info('Andreani webhook received', [
+            // Log only non-sensitive metadata
+            Log::info('[Webhook] Andreani webhook received', [
                 'ip' => $request->ip(),
-                'data' => $request->all(),
+                'shipment_id' => $request->input('shipmentId'),
+                'status' => $request->input('status'),
             ]);
 
             // Validate webhook signature if secret is configured
@@ -111,7 +107,9 @@ class WebhookController extends Controller
                 $payload = $request->getContent();
 
                 if (!$validator->validateAndreaniSignature($payload, $signature)) {
-                    Log::warning('Andreani webhook signature validation failed');
+                    Log::warning('[Webhook] Andreani webhook signature validation failed', [
+                        'ip' => $request->ip(),
+                    ]);
 
                     return response()->json([
                         'status' => 'error',
@@ -123,11 +121,18 @@ class WebhookController extends Controller
             // Process webhook
             $this->shippingService->processWebhook($request->all());
 
+            Log::info('[Webhook] Andreani webhook processed successfully', [
+                'shipment_id' => $request->input('shipmentId'),
+            ]);
+
             return response()->json(['status' => 'ok']);
         } catch (\Exception $e) {
-            Log::error('Andreani webhook processing failed', [
+            Log::error('[Webhook] Andreani webhook processing failed', [
+                'shipment_id' => $request->input('shipmentId'),
                 'exception' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'exception_class' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
 
             // Return 200 to prevent excessive retries

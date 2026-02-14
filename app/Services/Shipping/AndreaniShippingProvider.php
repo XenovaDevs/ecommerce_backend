@@ -242,7 +242,7 @@ class AndreaniShippingProvider implements ShippingProviderInterface
             'destinatario' => [
                 [
                     'nombreCompleto' => $shippingAddress->name,
-                    'email' => $order->user->email ?? '',
+                    'email' => $order->user?->email ?? '',
                     'documentoTipo' => 'DNI',
                     'documentoNumero' => '', // OrderAddress no tiene documento
                     'celular' => $shippingAddress->phone ?? '',

@@ -31,6 +31,8 @@ return [
         'Authorization',
         'X-Requested-With',
         'X-CSRF-Token',
+        'X-Session-ID',
+        'X-Request-ID',
         'Accept',
         'Origin',
     ],

@@ -60,7 +60,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
             ->middleware('throttle:1,1'); // 1 request per 60 seconds
         Route::post('/reset-password', [AuthController::class, 'resetPassword'])
-            ->middleware('throttle:' . SecurityConstants::AUTH_RATE_LIMIT . ',1');
+            ->middleware('throttle:3,1');
     });
 
     // Public Settings
@@ -98,6 +98,13 @@ Route::prefix('v1')->group(function () {
     // Shipping (public)
     Route::post('/shipping/quote', [ShippingController::class, 'quote']);
     Route::get('/shipping/track/{trackingNumber}', [ShippingController::class, 'track']);
+
+    // Guest Checkout (session-based)
+    Route::prefix('checkout/guest')->group(function () {
+        Route::post('/process', [CheckoutController::class, 'processGuest']);
+        Route::post('/validate', [CheckoutController::class, 'validateGuest']);
+        Route::get('/payment-methods', [CheckoutController::class, 'getPaymentMethods']);
+    });
 
     // Contact Form (public)
     Route::post('/contact', [ContactController::class, 'store']);
@@ -319,9 +326,13 @@ Route::prefix('v1')->group(function () {
             ->middleware('ability:contacts.update-status');
 
         // Reviews Management
-        Route::get('/reviews', [AdminReviewController::class, 'index']);
-        Route::put('/reviews/{review}/approve', [AdminReviewController::class, 'approve']);
-        Route::put('/reviews/{review}/reject', [AdminReviewController::class, 'reject']);
-        Route::delete('/reviews/{review}', [AdminReviewController::class, 'destroy']);
+        Route::get('/reviews', [AdminReviewController::class, 'index'])
+            ->middleware('ability:reviews.view');
+        Route::put('/reviews/{review}/approve', [AdminReviewController::class, 'approve'])
+            ->middleware('ability:reviews.approve');
+        Route::put('/reviews/{review}/reject', [AdminReviewController::class, 'reject'])
+            ->middleware('ability:reviews.reject');
+        Route::delete('/reviews/{review}', [AdminReviewController::class, 'destroy'])
+            ->middleware('ability:reviews.delete');
     });
 });

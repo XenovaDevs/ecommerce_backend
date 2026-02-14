@@ -44,14 +44,16 @@ class OrderService
      * - Payment preference creation
      * - Cart clearing
      *
-     * @param User $user The user creating the order
+     * @param User|null $user The user creating the order (null for guest checkout)
      * @param CreateOrderDTO $dto Order creation data
+     * @param string|null $sessionId Session identifier for guest checkout carts
      * @return array Contains 'order' and 'payment_url'
      * @throws InvalidOperationException If cart is invalid or checkout fails
      */
-    public function createFromCart(User $user, CreateOrderDTO $dto): array
+    public function createFromCart(?User $user, CreateOrderDTO $dto, ?string $sessionId = null): array
     {
-        $cart = Cart::forUser($user->id)->with(['items.product', 'coupons'])->first();
+        $cart = $this->cartService->getOrCreateCart($user, $sessionId);
+        $cart->loadMissing(['items.product', 'coupons']);
 
         if (!$cart || $cart->is_empty) {
             throw new InvalidOperationException('Cart is empty', 'EMPTY_CART');
@@ -82,7 +84,7 @@ class OrderService
 
             // Create order
             $order = Order::create([
-                'user_id' => $user->id,
+                'user_id' => $user?->id,
                 'status' => OrderStatus::PENDING,
                 'payment_status' => PaymentStatus::PENDING,
                 'subtotal' => $totals['subtotal'],
@@ -121,7 +123,20 @@ class OrderService
             $paymentUrl = null;
             if ($dto->paymentMethod === 'mercadopago') {
                 try {
-                    $paymentPreference = $this->paymentService->createPaymentPreference($user, $order->id);
+                    $guestPayer = null;
+
+                    if (!$user) {
+                        $guestPayer = [
+                            'name' => $dto->shippingAddress['name'] ?? 'Cliente',
+                            'email' => $dto->shippingAddress['email'] ?? '',
+                        ];
+                    }
+
+                    $paymentPreference = $this->paymentService->createPaymentPreference(
+                        $user,
+                        $order->id,
+                        $guestPayer
+                    );
                     $paymentUrl = $paymentPreference['init_point'];
 
                     Log::info('Payment preference created for order', [
@@ -175,21 +190,26 @@ class OrderService
      * Record usage for all coupons applied to the cart.
      *
      * @param Cart $cart
-     * @param User $user
+     * @param User|null $user
      * @param Order $order
      * @return void
      */
-    private function recordCouponUsage(Cart $cart, User $user, Order $order): void
+    private function recordCouponUsage(Cart $cart, ?User $user, Order $order): void
     {
         foreach ($cart->coupons as $coupon) {
             $discountAmount = $coupon->calculateDiscount($cart->subtotal);
 
-            $this->couponService->recordCouponUsage(
-                $coupon,
-                $user,
-                $order,
-                $discountAmount
-            );
+            if ($user) {
+                $this->couponService->recordCouponUsage(
+                    $order,
+                    $user,
+                    $coupon,
+                    $discountAmount
+                );
+            } else {
+                // Keep max-uses accounting for guest checkout even without a user account.
+                $coupon->incrementUsage();
+            }
 
             Log::info('Coupon usage recorded', [
                 'order_id' => $order->id,

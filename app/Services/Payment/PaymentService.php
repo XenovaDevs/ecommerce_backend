@@ -33,23 +33,38 @@ class PaymentService
      * This method orchestrates the payment creation process, validates the order,
      * creates the payment record, and delegates to the payment gateway service.
      *
-     * @param User $user
+     * @param User|null $user
      * @param int $orderId
+     * @param array{name: string, email: string}|null $guestPayer
      * @return array<string, mixed>
      * @throws EntityNotFoundException
      * @throws InvalidOperationException
      */
-    public function createPaymentPreference(User $user, int $orderId): array
+    public function createPaymentPreference(?User $user, int $orderId, ?array $guestPayer = null): array
     {
         $order = $this->findOrderForPayment($user, $orderId);
         $this->validateOrderCanBePaid($order);
 
-        return DB::transaction(function () use ($order, $user) {
+        return DB::transaction(function () use ($order, $user, $guestPayer) {
             $payment = $this->createPaymentRecord($order);
 
             try {
                 // Build preference request using DTO
-                $preferenceRequest = PaymentPreferenceRequest::fromOrder($order, $user, $payment->id);
+                if ($user) {
+                    $preferenceRequest = PaymentPreferenceRequest::fromOrder($order, $user, $payment->id);
+                } elseif (!empty($guestPayer['name']) && !empty($guestPayer['email'])) {
+                    $preferenceRequest = PaymentPreferenceRequest::fromOrderWithPayer(
+                        $order,
+                        $guestPayer['name'],
+                        $guestPayer['email'],
+                        $payment->id
+                    );
+                } else {
+                    throw new InvalidOperationException(
+                        'Guest checkout requires payer name and email',
+                        'PAYER_INFO_REQUIRED'
+                    );
+                }
 
                 // Create preference in Mercado Pago
                 $preferenceResponse = $this->mercadoPagoService->createPreference($preferenceRequest);
@@ -279,15 +294,22 @@ class PaymentService
     /**
      * Find and validate order for payment processing.
      *
-     * @param User $user
+     * @param User|null $user
      * @param int $orderId
      * @return Order
      * @throws EntityNotFoundException
      */
-    private function findOrderForPayment(User $user, int $orderId): Order
+    private function findOrderForPayment(?User $user, int $orderId): Order
     {
-        $order = Order::where('id', $orderId)
-            ->where('user_id', $user->id)
+        $query = Order::where('id', $orderId);
+
+        if ($user) {
+            $query->where('user_id', $user->id);
+        } else {
+            $query->whereNull('user_id');
+        }
+
+        $order = $query
             ->with(['items', 'shippingAddress'])
             ->first();
 

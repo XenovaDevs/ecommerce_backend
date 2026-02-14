@@ -19,7 +19,7 @@ class UploadController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         $request->validate([
-            'image' => ['required', 'image', 'max:5120'], // 5MB max
+            'image' => ['required', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'], // 5MB max
         ]);
 
         $file = $request->file('image');
@@ -36,7 +36,7 @@ class UploadController extends Controller
     {
         $request->validate([
             'images' => ['required', 'array'],
-            'images.*' => ['image', 'max:5120'], // 5MB max per image
+            'images.*' => ['image', 'mimes:jpeg,png,webp,gif', 'max:5120'], // 5MB max per image
         ]);
 
         $uploadedImages = [];

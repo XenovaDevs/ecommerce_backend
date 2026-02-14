@@ -29,6 +29,7 @@ final class RolePermissions
             'reports.view-sales', 'reports.view-products', 'reports.view-customers',
             'settings.view', 'settings.update',
             'contacts.view', 'contacts.reply', 'contacts.update-status',
+            'reviews.view', 'reviews.approve', 'reviews.reject', 'reviews.delete',
         ],
 
         'manager' => [
@@ -39,6 +40,7 @@ final class RolePermissions
             'customers.view',
             'reports.view-sales', 'reports.view-products',
             'contacts.view',
+            'reviews.view', 'reviews.approve', 'reviews.reject', 'reviews.delete',
         ],
 
         'support' => [
@@ -46,6 +48,7 @@ final class RolePermissions
             'products.view', 'categories.view',
             'orders.view-all',
             'customers.view',
+            'reviews.view', 'reviews.reject',
         ],
 
         'customer' => [
