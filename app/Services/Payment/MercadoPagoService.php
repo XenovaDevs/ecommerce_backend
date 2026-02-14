@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Payment;
 
 use App\Exceptions\Domain\InvalidOperationException;
+use App\Services\Payment\Net\PinnedMercadoPagoHttpClient;
 use App\Services\Payment\DTOs\PaymentPreferenceRequest;
 use App\Services\Payment\DTOs\PaymentPreferenceResponse;
 use Illuminate\Support\Facades\Log;
@@ -25,11 +26,15 @@ class MercadoPagoService
     private PaymentClient $paymentClient;
     private string $accessToken;
     private ?string $webhookSecret;
+    private bool $tlsPinningEnabled;
+    private ?string $tlsPinnedPublicKey;
 
     public function __construct()
     {
         $this->accessToken = config('services.mercadopago.access_token');
         $this->webhookSecret = config('services.mercadopago.webhook_secret');
+        $this->tlsPinningEnabled = (bool) config('services.mercadopago.tls_pinning_enabled', false);
+        $this->tlsPinnedPublicKey = config('services.mercadopago.tls_pinned_public_key');
 
         if (empty($this->accessToken)) {
             throw new InvalidOperationException(
@@ -39,6 +44,7 @@ class MercadoPagoService
         }
 
         $this->configureSDK();
+        $this->configureTlsPinning();
         $this->preferenceClient = new PreferenceClient();
         $this->paymentClient = new PaymentClient();
     }
@@ -49,7 +55,44 @@ class MercadoPagoService
     private function configureSDK(): void
     {
         MercadoPagoConfig::setAccessToken($this->accessToken);
-        MercadoPagoConfig::setRuntimeEnviroment(MercadoPagoConfig::LOCAL);
+        $isLocalRuntime = app()->environment(['local', 'testing']);
+
+        MercadoPagoConfig::setRuntimeEnviroment(
+            $isLocalRuntime ? MercadoPagoConfig::LOCAL : MercadoPagoConfig::SERVER
+        );
+    }
+
+    /**
+     * Enable TLS certificate pinning for Mercado Pago API calls when configured.
+     *
+     * Expected pin format:
+     *   sha256//BASE64_ENCODED_SPKI_HASH
+     */
+    private function configureTlsPinning(): void
+    {
+        if (!$this->tlsPinningEnabled) {
+            return;
+        }
+
+        if (!defined('CURLOPT_PINNEDPUBLICKEY')) {
+            throw new InvalidOperationException(
+                'TLS pinning is enabled but CURLOPT_PINNEDPUBLICKEY is not supported in this cURL build',
+                'MERCADOPAGO_TLS_PINNING_UNSUPPORTED'
+            );
+        }
+
+        if (empty($this->tlsPinnedPublicKey)) {
+            throw new InvalidOperationException(
+                'TLS pinning is enabled but MERCADOPAGO_TLS_PINNED_PUBLIC_KEY is not configured',
+                'MERCADOPAGO_TLS_PINNING_NOT_CONFIGURED'
+            );
+        }
+
+        MercadoPagoConfig::setHttpClient(
+            new PinnedMercadoPagoHttpClient($this->tlsPinnedPublicKey)
+        );
+
+        Log::info('Mercado Pago TLS pinning enabled');
     }
 
     /**
@@ -166,10 +209,10 @@ class MercadoPagoService
      */
     public function validateWebhookSignature(array $headers, string $rawBody): bool
     {
-        // If no webhook secret is configured, skip validation (not recommended for production)
+        // Fail closed when secret is missing to avoid accepting unsigned webhooks.
         if (empty($this->webhookSecret)) {
-            Log::warning('Webhook signature validation skipped - no secret configured');
-            return true;
+            Log::error('Webhook signature validation failed - no secret configured');
+            return false;
         }
 
         // Get signature components from headers
