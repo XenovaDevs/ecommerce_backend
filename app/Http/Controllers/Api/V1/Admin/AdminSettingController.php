@@ -31,6 +31,7 @@ class AdminSettingController extends Controller
         $validated = $request->validate([
             'settings' => ['required', 'array'],
         ]);
+        $forcedGroup = $request->route('group');
 
         // Handle both formats:
         // Format 1: ['settings' => ['key' => 'value', ...]]
@@ -43,18 +44,33 @@ class AdminSettingController extends Controller
         if ($isAssociative) {
             // Format 1: associative array
             foreach ($settings as $key => $value) {
+                $attributes = ['value' => is_array($value) ? json_encode($value) : (string) $value];
+                if (is_string($forcedGroup) && $forcedGroup !== '') {
+                    $attributes['group'] = $forcedGroup;
+                }
+
                 Setting::updateOrCreate(
                     ['key' => $key],
-                    ['value' => is_array($value) ? json_encode($value) : (string) $value]
+                    $attributes
                 );
             }
         } else {
             // Format 2: array of objects
             foreach ($settings as $setting) {
                 if (isset($setting['key']) && isset($setting['value'])) {
+                    $attributes = [
+                        'value' => is_array($setting['value']) ? json_encode($setting['value']) : (string) $setting['value'],
+                    ];
+
+                    if (is_string($forcedGroup) && $forcedGroup !== '') {
+                        $attributes['group'] = $forcedGroup;
+                    } elseif (!empty($setting['group'])) {
+                        $attributes['group'] = (string) $setting['group'];
+                    }
+
                     Setting::updateOrCreate(
                         ['key' => $setting['key']],
-                        ['value' => is_array($setting['value']) ? json_encode($setting['value']) : (string) $setting['value']]
+                        $attributes
                     );
                 }
             }

@@ -54,16 +54,7 @@ class AdminContactController extends Controller
 
         $messages = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => ContactMessageResource::collection($messages)->resolve(),
-            'meta' => [
-                'current_page' => $messages->currentPage(),
-                'last_page' => $messages->lastPage(),
-                'per_page' => $messages->perPage(),
-                'total' => $messages->total(),
-            ],
-        ]);
+        return $this->paginated(ContactMessageResource::collection($messages));
     }
 
     /**

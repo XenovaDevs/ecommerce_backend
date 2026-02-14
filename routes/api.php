@@ -68,6 +68,7 @@ Route::prefix('v1')->group(function () {
 
     // Categories (public read)
     Route::get('/categories', [CategoryController::class, 'index']);
+    Route::get('/categories/tree', [CategoryController::class, 'tree']);
     Route::get('/categories/{slug}', [CategoryController::class, 'show']);
 
     // Products (public read)
@@ -231,12 +232,12 @@ Route::prefix('v1')->group(function () {
         // Orders Management
         Route::get('/orders', [AdminOrderController::class, 'index'])
             ->middleware('ability:orders.view-all');
+        Route::get('/orders/stats', [AdminOrderController::class, 'stats'])
+            ->middleware('ability:orders.view-all');
         Route::get('/orders/{id}', [AdminOrderController::class, 'show'])
             ->middleware('ability:orders.view-all');
         Route::put('/orders/{id}/status', [AdminOrderController::class, 'updateStatus'])
             ->middleware('ability:orders.update-status');
-        Route::get('/orders/stats', [AdminOrderController::class, 'stats'])
-            ->middleware('ability:orders.view-all');
 
         // Shipment Management
         Route::post('/shipments/orders/{order}', [AdminShipmentController::class, 'create'])
@@ -254,6 +255,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/settings', [AdminSettingController::class, 'index'])
             ->middleware('ability:settings.view');
         Route::put('/settings', [AdminSettingController::class, 'update'])
+            ->middleware('ability:settings.update');
+        Route::put('/settings/general', [AdminSettingController::class, 'update'])
+            ->defaults('group', 'general')
+            ->middleware('ability:settings.update');
+        Route::put('/settings/shipping', [AdminSettingController::class, 'update'])
+            ->defaults('group', 'shipping')
+            ->middleware('ability:settings.update');
+        Route::put('/settings/payment', [AdminSettingController::class, 'update'])
+            ->defaults('group', 'payment')
             ->middleware('ability:settings.update');
         Route::get('/settings/general', [AdminSettingController::class, 'getByGroup'])
             ->defaults('group', 'general')
@@ -280,6 +290,15 @@ Route::prefix('v1')->group(function () {
         });
 
         // Shipping Management
+        Route::get('/shipping', [AdminShippingController::class, 'index'])
+            ->middleware('ability:orders.view-all');
+        Route::post('/shipping', [AdminShippingController::class, 'create'])
+            ->middleware('ability:orders.create-shipment');
+        Route::get('/shipping/available-orders', [AdminShippingController::class, 'availableOrders'])
+            ->middleware('ability:orders.view-all');
+        Route::get('/shipping/{id}/track', [AdminShippingController::class, 'track'])
+            ->whereNumber('id')
+            ->middleware('ability:orders.view-all');
         Route::get('/shipping/rates', [AdminShippingController::class, 'rates'])
             ->middleware('ability:settings.view');
 

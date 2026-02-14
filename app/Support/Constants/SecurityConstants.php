@@ -54,7 +54,7 @@ final class SecurityConstants
     /**
      * Rate limit for authentication endpoints per minute.
      */
-    public const AUTH_RATE_LIMIT = 10;
+    public const AUTH_RATE_LIMIT = 60;
 
     /**
      * Rate limit for refresh token endpoint per minute.

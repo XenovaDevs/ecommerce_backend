@@ -43,4 +43,10 @@ class CategoryController extends Controller
 
         return $this->success(new CategoryResource($category->load(['parent', 'children'])));
     }
+
+    public function tree(): JsonResponse
+    {
+        $categories = $this->categoryRepository->getActive(false, true);
+        return $this->success(CategoryResource::collection($categories));
+    }
 }
