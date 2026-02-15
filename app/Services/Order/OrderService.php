@@ -227,7 +227,7 @@ class OrderService
 
     public function findById(int $id, ?int $userId = null): Order
     {
-        $query = Order::with(['items', 'shippingAddress', 'billingAddress', 'payment', 'shipment']);
+        $query = Order::with(['user', 'items', 'shippingAddress', 'billingAddress', 'payment', 'shipment']);
 
         if ($userId) {
             $query->where('user_id', $userId);

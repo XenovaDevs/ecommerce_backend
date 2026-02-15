@@ -83,7 +83,7 @@ class ProductService
         $this->repository->delete($product);
     }
 
-    public function addImage(int $productId, string $url, bool $isPrimary = false): void
+    public function addImage(int $productId, string $url, bool $isPrimary = false): \App\Models\ProductImage
     {
         $product = $this->findById($productId);
         $position = $product->images()->count();
@@ -92,7 +92,7 @@ class ProductService
             $product->images()->update(['is_primary' => false]);
         }
 
-        $product->images()->create([
+        return $product->images()->create([
             'url' => $url,
             'position' => $position,
             'is_primary' => $isPrimary,

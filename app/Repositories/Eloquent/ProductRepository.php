@@ -38,7 +38,7 @@ class ProductRepository implements ProductRepositoryInterface
     public function paginate(ProductFilterDTO $filters): LengthAwarePaginator
     {
         $query = $this->model
-            ->with(['category', 'primaryImage'])
+            ->with(['category', 'images'])
             ->active();
 
         if ($filters->categoryId) {
@@ -73,7 +73,7 @@ class ProductRepository implements ProductRepositoryInterface
     public function getFeatured(int $limit = 8): Collection
     {
         return $this->model
-            ->with(['primaryImage'])
+            ->with(['images'])
             ->active()
             ->featured()
             ->inStock()

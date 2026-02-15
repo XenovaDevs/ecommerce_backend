@@ -142,15 +142,13 @@ class AdminProductController extends Controller
             return $this->error('Either url or image file is required', 'VALIDATION_ERROR', 422);
         }
 
-        $this->productService->addImage(
+        $image = $this->productService->addImage(
             $id,
             $url,
             $request->boolean('is_primary')
         );
 
-        $product = $this->productService->findById($id);
-
-        return $this->success(new ProductResource($product->load('images')));
+        return $this->success(new \App\Http\Resources\ProductImageResource($image));
     }
 
     public function deleteImage(int $id, int $imageId): JsonResponse
