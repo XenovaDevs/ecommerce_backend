@@ -85,7 +85,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('cart')->group(function () {
         Route::get('/', [CartController::class, 'show']);
         Route::post('/items', [CartController::class, 'addItem']);
-        Route::put('/items/{id}', [CartController::class, 'updateItem']);
+        Route::match(['put', 'patch'], '/items/{id}', [CartController::class, 'updateItem']);
         Route::delete('/items/{id}', [CartController::class, 'removeItem']);
         Route::delete('/', [CartController::class, 'clear']);
         Route::post('/merge', [CartController::class, 'merge'])->middleware('auth:sanctum');
@@ -103,7 +103,9 @@ Route::prefix('v1')->group(function () {
     Route::prefix('checkout/guest')->group(function () {
         Route::post('/process', [CheckoutController::class, 'processGuest']);
         Route::post('/validate', [CheckoutController::class, 'validateGuest']);
+        Route::post('/payment-preference', [CheckoutController::class, 'createGuestPaymentPreference']);
         Route::get('/payment-methods', [CheckoutController::class, 'getPaymentMethods']);
+        Route::get('/order/{orderNumber}', [CheckoutController::class, 'showGuestOrder']);
     });
 
     // Contact Form (public)

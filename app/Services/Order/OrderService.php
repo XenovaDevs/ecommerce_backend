@@ -7,6 +7,7 @@ namespace App\Services\Order;
 use App\Domain\Enums\OrderStatus;
 use App\Domain\Enums\PaymentStatus;
 use App\DTOs\Order\CreateOrderDTO;
+use App\Events\OrderCreated;
 use App\Exceptions\Domain\EntityNotFoundException;
 use App\Exceptions\Domain\InvalidOperationException;
 use App\Models\Cart;
@@ -72,7 +73,7 @@ class OrderService
         // Validate applied coupons are still valid
         $this->validateCartCoupons($cart);
 
-        return DB::transaction(function () use ($user, $cart, $dto) {
+        $result = DB::transaction(function () use ($user, $cart, $dto) {
             // Create addresses
             $shippingAddress = $this->createOrderAddress($dto->shippingAddress, 'shipping');
             $billingAddress = $dto->billingAddress
@@ -162,6 +163,11 @@ class OrderService
                 'payment_url' => $paymentUrl,
             ];
         });
+
+        $result['order']->loadMissing(['user', 'shippingAddress', 'billingAddress']);
+        OrderCreated::dispatch($result['order']);
+
+        return $result;
     }
 
     /**
@@ -287,6 +293,7 @@ class OrderService
         return OrderAddress::create([
             'type' => $type,
             'name' => $data['name'],
+            'email' => $data['email'] ?? null,
             'phone' => $data['phone'] ?? null,
             'address' => $data['address'],
             'address_line_2' => $data['address_line_2'] ?? null,

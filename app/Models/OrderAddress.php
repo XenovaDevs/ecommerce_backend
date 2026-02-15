@@ -18,6 +18,7 @@ class OrderAddress extends Model
         'order_id',
         'type',
         'name',
+        'email',
         'phone',
         'address',
         'address_line_2',

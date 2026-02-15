@@ -29,7 +29,7 @@ class AndreaniApiClient
         $this->password = $password ?? config('services.andreani.password');
 
         if (empty($this->username) || empty($this->password)) {
-            throw new \RuntimeException('Andreani credentials not configured');
+            Log::warning('Andreani credentials not configured');
         }
     }
 

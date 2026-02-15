@@ -6,7 +6,7 @@ namespace App\Jobs;
 
 use App\Domain\Enums\OrderStatus;
 use App\Domain\Enums\PaymentStatus;
-use App\Mail\OrderPendingPaymentCreatedMail;
+use App\Mail\OrderPendingPaymentReminderMail;
 use App\Models\Order;
 use App\Support\Constants\QueueNames;
 use Illuminate\Bus\Queueable;
@@ -16,10 +16,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Mail;
 
-/**
- * @ai-context Sends initial "pending payment" email after order creation.
- */
-class SendOrderConfirmation implements ShouldQueue
+class SendPendingPaymentReminder implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -52,7 +49,8 @@ class SendOrderConfirmation implements ShouldQueue
         $expirationHours = (int) config('checkout.pending_payment_expiration_hours', 24);
 
         Mail::to($recipientEmail)->send(
-            new OrderPendingPaymentCreatedMail($order, $expirationHours)
+            new OrderPendingPaymentReminderMail($order, $expirationHours)
         );
     }
 }
+

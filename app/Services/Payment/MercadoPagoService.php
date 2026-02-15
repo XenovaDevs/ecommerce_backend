@@ -29,24 +29,40 @@ class MercadoPagoService
     private bool $tlsPinningEnabled;
     private ?string $tlsPinnedPublicKey;
 
+    private bool $initialized = false;
+
     public function __construct()
     {
-        $this->accessToken = config('services.mercadopago.access_token');
+        $this->accessToken = config('services.mercadopago.access_token') ?? '';
         $this->webhookSecret = config('services.mercadopago.webhook_secret');
         $this->tlsPinningEnabled = (bool) config('services.mercadopago.tls_pinning_enabled', false);
         $this->tlsPinnedPublicKey = config('services.mercadopago.tls_pinned_public_key');
 
-        if (empty($this->accessToken)) {
-            throw new InvalidOperationException(
-                'Mercado Pago access token is not configured',
-                'MERCADOPAGO_NOT_CONFIGURED'
-            );
+        if (!empty($this->accessToken)) {
+            $this->initialize();
         }
+    }
 
+    private function initialize(): void
+    {
         $this->configureSDK();
         $this->configureTlsPinning();
         $this->preferenceClient = new PreferenceClient();
         $this->paymentClient = new PaymentClient();
+        $this->initialized = true;
+    }
+
+    private function ensureInitialized(): void
+    {
+        if (!$this->initialized) {
+            if (empty($this->accessToken)) {
+                throw new InvalidOperationException(
+                    'Mercado Pago access token is not configured',
+                    'MERCADOPAGO_NOT_CONFIGURED'
+                );
+            }
+            $this->initialize();
+        }
     }
 
     /**
@@ -104,6 +120,7 @@ class MercadoPagoService
      */
     public function createPreference(PaymentPreferenceRequest $request): PaymentPreferenceResponse
     {
+        $this->ensureInitialized();
         try {
             Log::info('Creating Mercado Pago preference', [
                 'external_reference' => $request->externalReference,
@@ -154,6 +171,7 @@ class MercadoPagoService
      */
     public function getPayment(string $paymentId): ?array
     {
+        $this->ensureInitialized();
         try {
             Log::info('Fetching payment from Mercado Pago', [
                 'payment_id' => $paymentId,

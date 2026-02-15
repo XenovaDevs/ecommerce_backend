@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Payment;
 
+use App\Domain\Enums\OrderStatus;
 use App\Domain\Enums\PaymentStatus;
 use App\Events\OrderPaid;
 use App\Exceptions\Domain\EntityNotFoundException;
@@ -248,6 +249,25 @@ class PaymentService
 
         // Update order based on payment status
         if ($newStatus === PaymentStatus::PAID && $oldStatus !== PaymentStatus::PAID) {
+            if ($payment->order->status === OrderStatus::CANCELLED) {
+                $payment->order->update([
+                    'payment_status' => PaymentStatus::PAID,
+                    'paid_at' => now(),
+                ]);
+                $payment->order->addStatusHistory(
+                    'Late payment received',
+                    'Payment approved after order cancellation. Manual review required.'
+                );
+
+                Log::warning('Late payment received for cancelled order', [
+                    'order_id' => $payment->order_id,
+                    'payment_id' => $payment->id,
+                    'mp_payment_id' => $mercadoPagoPaymentId,
+                ]);
+
+                return;
+            }
+
             $payment->order->markAsPaid($mercadoPagoPaymentId);
             OrderPaid::dispatch($payment->order, $mercadoPagoPaymentId);
 

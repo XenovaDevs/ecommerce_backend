@@ -30,7 +30,7 @@ final readonly class PaymentPreferenceRequest
         public string $externalReference,
         public ?string $notificationUrl = null,
         public ?string $statementDescriptor = null,
-        public string $autoReturn = 'approved'
+        public ?string $autoReturn = 'approved'
     ) {
         $this->validate();
     }
@@ -83,19 +83,27 @@ final readonly class PaymentPreferenceRequest
             'email' => $payerEmail,
         ];
 
+        // Append order number to back URLs so the frontend can fetch order details after redirect
+        $orderQuery = '?order=' . urlencode($order->order_number);
+
         $backUrls = [
-            'success' => config('services.mercadopago.success_url'),
-            'failure' => config('services.mercadopago.failure_url'),
-            'pending' => config('services.mercadopago.pending_url'),
+            'success' => config('services.mercadopago.success_url') . $orderQuery,
+            'failure' => config('services.mercadopago.failure_url') . $orderQuery,
+            'pending' => config('services.mercadopago.pending_url') . $orderQuery,
         ];
+
+        // MP rejects auto_return when back_urls use http (localhost dev)
+        $successUrl = $backUrls['success'] ?? '';
+        $autoReturn = str_starts_with($successUrl, 'https://') ? 'approved' : null;
 
         return new self(
             items: $items,
             payer: $payer,
             backUrls: $backUrls,
             externalReference: (string) $paymentId,
-            notificationUrl: config('services.mercadopago.notification_url'),
-            statementDescriptor: config('app.name')
+            notificationUrl: app()->environment('production') ? config('services.mercadopago.notification_url') : null,
+            statementDescriptor: config('app.name'),
+            autoReturn: $autoReturn
         );
     }
 

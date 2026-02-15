@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Order;
 use App\Models\OrderAddress;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -15,6 +14,7 @@ class OrderAddressFactory extends Factory
         return [
             'type' => fake()->randomElement(['shipping', 'billing']),
             'name' => fake()->name(),
+            'email' => fake()->safeEmail(),
             'phone' => fake()->phoneNumber(),
             'address' => fake()->streetAddress(),
             'address_line_2' => fake()->optional()->secondaryAddress(),

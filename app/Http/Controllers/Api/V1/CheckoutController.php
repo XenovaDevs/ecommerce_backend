@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Enums\OrderStatus;
+use App\Domain\Enums\PaymentStatus;
 use App\DTOs\Order\CreateOrderDTO;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\CheckoutRequest;
 use App\Http\Resources\OrderResource;
 use App\Messages\SuccessMessages;
+use App\Models\Order;
 use App\Services\Cart\CartService;
 use App\Services\Order\OrderService;
 use App\Services\Payment\PaymentService;
@@ -153,6 +156,84 @@ class CheckoutController extends Controller
         );
 
         return $this->success($preference);
+    }
+
+    /**
+     * Create payment preference for a guest order using order number.
+     */
+    public function createGuestPaymentPreference(Request $request): JsonResponse
+    {
+        $request->validate([
+            'order_number' => ['required', 'string', 'max:30'],
+        ]);
+
+        $order = Order::query()
+            ->whereNull('user_id')
+            ->where('order_number', (string) $request->input('order_number'))
+            ->with(['shippingAddress'])
+            ->first();
+
+        if (!$order) {
+            return $this->error(
+                'Order not found',
+                'ORDER_NOT_FOUND',
+                404
+            );
+        }
+
+        if (
+            $order->status === OrderStatus::CANCELLED
+            || $order->payment_status !== PaymentStatus::PENDING
+        ) {
+            return $this->error(
+                'This order is no longer available for payment',
+                'ORDER_PAYMENT_NOT_AVAILABLE',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+
+        $payerEmail = $order->shippingAddress?->email;
+
+        if (!$payerEmail) {
+            return $this->error(
+                'Order has no contact email available',
+                'ORDER_CONTACT_EMAIL_REQUIRED',
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
+        }
+
+        $preference = $this->paymentService->createPaymentPreference(
+            null,
+            $order->id,
+            [
+                'name' => $order->shippingAddress?->name ?? 'Cliente',
+                'email' => $payerEmail,
+            ]
+        );
+
+        return $this->success($preference);
+    }
+
+    /**
+     * Get guest order by order number.
+     * Public endpoint for guests to view their order confirmation.
+     */
+    public function showGuestOrder(Request $request, string $orderNumber): JsonResponse
+    {
+        $order = Order::whereNull('user_id')
+            ->where('order_number', $orderNumber)
+            ->with(['items', 'shippingAddress', 'billingAddress', 'payment'])
+            ->first();
+
+        if (!$order) {
+            return $this->error(
+                'Order not found',
+                'ORDER_NOT_FOUND',
+                404
+            );
+        }
+
+        return $this->success(new OrderResource($order));
     }
 
     /**

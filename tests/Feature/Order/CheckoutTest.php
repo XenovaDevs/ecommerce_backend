@@ -33,6 +33,7 @@ class CheckoutTest extends TestCase
             ->postJson('/api/v1/checkout', [
                 'shipping_address' => [
                     'name' => 'John Doe',
+                    'email' => 'john@example.com',
                     'phone' => '+1234567890',
                     'address' => '123 Main St',
                     'city' => 'New York',
@@ -49,6 +50,7 @@ class CheckoutTest extends TestCase
                     'postal_code' => '10001',
                     'country' => 'USA',
                 ],
+                'shipping_cost' => 0,
             ]);
 
         $response->assertStatus(201)
@@ -69,6 +71,7 @@ class CheckoutTest extends TestCase
             ->postJson('/api/v1/checkout', [
                 'shipping_address' => [
                     'name' => 'John Doe',
+                    'email' => 'john@example.com',
                     'phone' => '+1234567890',
                     'address' => '123 Main St',
                     'city' => 'New York',
@@ -85,8 +88,9 @@ class CheckoutTest extends TestCase
                     'postal_code' => '10001',
                     'country' => 'USA',
                 ],
+                'shipping_cost' => 0,
             ]);
 
-        $response->assertStatus(400);
+        $response->assertStatus(409);
     }
 }

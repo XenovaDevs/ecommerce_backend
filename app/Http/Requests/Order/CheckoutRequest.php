@@ -23,7 +23,7 @@ class CheckoutRequest extends FormRequest
             'shipping_address' => ['required', 'array'],
             'shipping_address.name' => ['required', 'string', 'max:255'],
             'shipping_address.email' => ['required', 'email', 'max:255'],
-            'shipping_address.phone' => ['required', 'string', 'max:50'],
+            'shipping_address.phone' => ['nullable', 'string', 'max:50'],
             'shipping_address.address' => ['required', 'string', 'max:500'],
             'shipping_address.address_line_2' => ['nullable', 'string', 'max:500'],
             'shipping_address.city' => ['required', 'string', 'max:255'],
@@ -33,7 +33,7 @@ class CheckoutRequest extends FormRequest
 
             'billing_address' => ['nullable', 'array'],
             'billing_address.name' => ['required_with:billing_address', 'string', 'max:255'],
-            'billing_address.phone' => ['required_with:billing_address', 'string', 'max:50'],
+            'billing_address.phone' => ['nullable', 'string', 'max:50'],
             'billing_address.address' => ['required_with:billing_address', 'string', 'max:500'],
             'billing_address.address_line_2' => ['nullable', 'string', 'max:500'],
             'billing_address.city' => ['required_with:billing_address', 'string', 'max:255'],

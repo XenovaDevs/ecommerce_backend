@@ -15,6 +15,7 @@ class OrderAddressResource extends JsonResource
             'id' => $this->id,
             'type' => $this->type,
             'name' => $this->name,
+            'email' => $this->email,
             'phone' => $this->phone,
             'address' => $this->address,
             'address_line_2' => $this->address_line_2,

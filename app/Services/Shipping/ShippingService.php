@@ -206,21 +206,17 @@ class ShippingService
      */
     private function getDefaultQuote(float $weight): array
     {
-        $freeThreshold = Setting::get('free_shipping_threshold', 50000);
         $baseCost = 2500;
 
         return [
-            'provider' => 'standard',
-            'options' => [
-                [
-                    'service_code' => 'standard',
-                    'service_name' => 'Envío Estándar',
-                    'cost' => $baseCost + ($weight * 100),
-                    'estimated_days' => 5,
-                    'description' => 'Envío estándar a domicilio',
-                ],
+            [
+                'id' => 'standard',
+                'provider' => 'standard',
+                'name' => 'Envío Estándar',
+                'price' => $baseCost + ($weight * 100),
+                'estimated_days' => 5,
+                'estimated_delivery' => now()->addDays(5)->format('Y-m-d'),
             ],
-            'free_threshold' => $freeThreshold,
         ];
     }
 
