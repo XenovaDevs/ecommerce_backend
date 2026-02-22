@@ -209,13 +209,15 @@ class ShippingService
         $baseCost = 2500;
 
         return [
-            [
-                'id' => 'standard',
-                'provider' => 'standard',
-                'name' => 'Envío Estándar',
-                'price' => $baseCost + ($weight * 100),
-                'estimated_days' => 5,
-                'estimated_delivery' => now()->addDays(5)->format('Y-m-d'),
+            'provider' => 'standard',
+            'options' => [
+                [
+                    'service_code' => 'standard',
+                    'service_name' => 'Envío Estándar',
+                    'cost' => $baseCost + ($weight * 100),
+                    'estimated_days' => 5,
+                    'estimated_delivery' => now()->addDays(5)->format('Y-m-d'),
+                ],
             ],
         ];
     }
@@ -246,4 +248,3 @@ class ShippingService
         };
     }
 }
-

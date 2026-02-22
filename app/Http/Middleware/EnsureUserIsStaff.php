@@ -17,7 +17,7 @@ class EnsureUserIsStaff
     {
         $user = $request->user();
 
-        if (!$user || !$user->role->isStaff()) {
+        if (!$user || !$user->role?->isStaff()) {
             return response()->json([
                 'success' => false,
                 'error' => [

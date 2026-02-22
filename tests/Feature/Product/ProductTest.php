@@ -62,7 +62,7 @@ class ProductTest extends TestCase
     public function test_can_get_featured_products(): void
     {
         Product::factory()->count(3)->featured()->create();
-        Product::factory()->count(2)->create();
+        Product::factory()->count(2)->create(['is_featured' => false]);
 
         $response = $this->getJson('/api/v1/products/featured');
 

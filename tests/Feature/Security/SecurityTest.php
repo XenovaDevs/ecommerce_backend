@@ -115,17 +115,22 @@ class SecurityTest extends TestCase
         $response = $this->postJson('/api/v1/auth/register', [
             'name' => 'Hacker',
             'email' => 'hacker@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'SecurePass123!',
+            'password_confirmation' => 'SecurePass123!',
             'role' => 'super_admin', // Try to set admin role
             'is_active' => true,
         ]);
 
-        // Check that the user was not created as admin
         $newUser = User::where('email', 'hacker@example.com')->first();
-        if ($newUser) {
+
+        if ($response->status() === 201) {
+            $this->assertNotNull($newUser);
             $this->assertNotEquals('super_admin', $newUser->role->value);
+            return;
         }
+
+        $response->assertStatus(422);
+        $this->assertNull($newUser);
     }
 
     public function test_cannot_enumerate_users_through_login_errors(): void

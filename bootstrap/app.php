@@ -2,6 +2,7 @@
 
 use App\Exceptions\BaseException;
 use App\Http\Middleware\ForceJsonResponse;
+use App\Http\Middleware\PublicApiCacheHeaders;
 use App\Http\Middleware\RequestId;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\AuthenticationException;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'ability' => \App\Http\Middleware\CheckAbility::class,
             'staff' => \App\Http\Middleware\EnsureUserIsStaff::class,
+            'public.cache' => PublicApiCacheHeaders::class,
         ]);
 
     })

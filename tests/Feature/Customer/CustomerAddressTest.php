@@ -32,8 +32,7 @@ class CustomerAddressTest extends TestCase
 
         $response = $this->postJson('/api/v1/customer/addresses', [
             'type' => 'shipping',
-            'first_name' => 'John',
-            'last_name' => 'Doe',
+            'name' => 'John Doe',
             'address' => '123 Main St',
             'city' => 'New York',
             'state' => 'NY',
@@ -107,12 +106,11 @@ class CustomerAddressTest extends TestCase
         $response = $this->postJson('/api/v1/customer/addresses', []);
 
         $this->assertCustomValidationErrors($response, [
+            'type',
             'name',
-            'phone',
             'address',
             'city',
             'postal_code',
-            'country',
         ]);
     }
 

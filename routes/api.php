@@ -63,23 +63,28 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:3,1');
     });
 
-    // Public Settings
-    Route::get('/settings/public', [SettingController::class, 'public']);
+    Route::middleware('public.cache')->group(function () {
+        // Public Settings
+        Route::get('/settings/public', [SettingController::class, 'public']);
 
-    // Categories (public read)
-    Route::get('/categories', [CategoryController::class, 'index']);
-    Route::get('/categories/tree', [CategoryController::class, 'tree']);
-    Route::get('/categories/{slug}', [CategoryController::class, 'show']);
+        // Categories (public read)
+        Route::get('/categories', [CategoryController::class, 'index']);
+        Route::get('/categories/tree', [CategoryController::class, 'tree']);
+        Route::get('/categories/{slug}', [CategoryController::class, 'show']);
 
-    // Products (public read)
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/featured', [ProductController::class, 'featured']);
-    Route::get('/products/{id}/related', [ProductController::class, 'related'])->where('id', '[0-9]+');
-    Route::get('/products/{slug}', [ProductController::class, 'show']);
+        // Products (public read)
+        Route::get('/products', [ProductController::class, 'index']);
+        Route::get('/products/featured', [ProductController::class, 'featured']);
+        Route::get('/products/{id}/related', [ProductController::class, 'related'])->where('id', '[0-9]+');
+        Route::get('/products/{slug}', [ProductController::class, 'show']);
 
-    // Reviews (public read)
-    Route::get('/reviews', [ReviewController::class, 'index']);
-    Route::get('/reviews/{review}', [ReviewController::class, 'show']);
+        // Reviews (public read)
+        Route::get('/reviews', [ReviewController::class, 'index']);
+        Route::get('/reviews/{review}', [ReviewController::class, 'show']);
+
+        // Shipping Tracking (public read)
+        Route::get('/shipping/track/{trackingNumber}', [ShippingController::class, 'track']);
+    });
 
     // Cart (guest access with session)
     Route::prefix('cart')->group(function () {
@@ -95,9 +100,8 @@ Route::prefix('v1')->group(function () {
         Route::delete('/coupons/{coupon}', [CouponController::class, 'remove']);
     });
 
-    // Shipping (public)
+    // Shipping (public write/read mixed)
     Route::post('/shipping/quote', [ShippingController::class, 'quote']);
-    Route::get('/shipping/track/{trackingNumber}', [ShippingController::class, 'track']);
 
     // Guest Checkout (session-based)
     Route::prefix('checkout/guest')->group(function () {

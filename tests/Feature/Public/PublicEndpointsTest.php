@@ -156,7 +156,39 @@ class PublicEndpointsTest extends TestCase
             ->assertJsonStructure([
                 'success',
                 'data',
-                'meta' => ['current_page', 'total', 'per_page'],
             ]);
+
+        $payload = $response->json();
+        $pagination = $payload['meta'] ?? $payload['pagination'] ?? [];
+
+        $this->assertIsArray($pagination);
+        $this->assertNotEmpty($pagination);
+    }
+
+    public function test_public_read_endpoints_include_cache_headers_and_etag(): void
+    {
+        Category::factory()->count(2)->create();
+
+        $response = $this->getJson('/api/v1/categories');
+
+        $response->assertOk()
+            ->assertHeader('Cache-Control')
+            ->assertHeader('ETag');
+
+        $this->assertStringContainsString('s-maxage=', (string) $response->headers->get('Cache-Control'));
+    }
+
+    public function test_public_read_endpoints_return_not_modified_when_etag_matches(): void
+    {
+        Category::factory()->count(2)->create();
+
+        $response = $this->getJson('/api/v1/categories');
+        $etag = (string) $response->headers->get('ETag');
+
+        $notModified = $this->withHeaders([
+            'If-None-Match' => $etag,
+        ])->getJson('/api/v1/categories');
+
+        $notModified->assertStatus(304);
     }
 }

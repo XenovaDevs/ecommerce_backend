@@ -149,7 +149,7 @@ class AdminCustomerTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data',
-                'meta' => ['current_page', 'total', 'per_page'],
+                'pagination' => ['current_page', 'total', 'per_page'],
             ]);
     }
 }

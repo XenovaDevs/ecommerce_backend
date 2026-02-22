@@ -95,6 +95,17 @@ QUEUE_CONNECTION=redis
 REDIS_HOST=127.0.0.1
 REDIS_PASSWORD=null
 REDIS_PORT=6379
+REDIS_DB=0
+REDIS_CACHE_DB=1
+REDIS_QUEUE_DB=2
+REDIS_QUEUE_CONNECTION=queue
+REDIS_QUEUE_BLOCK_FOR=5
+
+# Horizon
+HORIZON_NAME=ecommerce-horizon
+HORIZON_PATH=horizon
+HORIZON_ALLOWED_IPS=127.0.0.1,203.0.113.10
+HORIZON_MAX_PROCESSES=10
 
 # Sanctum
 SANCTUM_STATEFUL_DOMAINS=yourdomain.com
@@ -201,31 +212,29 @@ sudo apt install certbot python3-certbot-nginx -y
 sudo certbot --nginx -d api.yourdomain.com
 ```
 
-### 7. Configurar Queue Workers con Supervisor
+### 7. Configurar Horizon con Supervisor (recomendado)
 
 ```bash
-sudo nano /etc/supervisor/conf.d/ecommerce-worker.conf
+sudo nano /etc/supervisor/conf.d/ecommerce-horizon.conf
 ```
 
 ```ini
-[program:ecommerce-worker]
-process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/ecommerce-backend/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 --queue=high,payments,orders,default,notifications,shipping,stock,webhooks,reports,low
+[program:ecommerce-horizon]
+command=php /var/www/ecommerce-backend/artisan horizon
 autostart=true
 autorestart=true
 stopasgroup=true
 killasgroup=true
 user=www-data
-numprocs=4
 redirect_stderr=true
-stdout_logfile=/var/www/ecommerce-backend/storage/logs/worker.log
+stdout_logfile=/var/www/ecommerce-backend/storage/logs/horizon.log
 stopwaitsecs=3600
 ```
 
 ```bash
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl start ecommerce-worker:*
+sudo supervisorctl start ecommerce-horizon
 ```
 
 ### 8. Configurar Laravel Reverb (WebSockets)
@@ -266,11 +275,14 @@ sudo crontab -e -u www-data
 # Ver logs en tiempo real
 tail -f /var/www/ecommerce-backend/storage/logs/laravel.log
 
-# Ver status de workers
+# Ver status de workers / horizon
 sudo supervisorctl status
 
+# Ver estado de Horizon
+php artisan horizon:status
+
 # Reiniciar workers
-sudo supervisorctl restart ecommerce-worker:*
+sudo supervisorctl restart ecommerce-horizon
 ```
 
 ## Actualizaciones
@@ -298,7 +310,7 @@ php artisan route:cache
 php artisan view:cache
 
 # Reiniciar workers
-sudo supervisorctl restart ecommerce-worker:*
+sudo supervisorctl restart ecommerce-horizon
 
 # Desactivar modo mantenimiento
 php artisan up
@@ -417,5 +429,5 @@ php artisan cache:clear
 php artisan config:clear
 
 # Reiniciar workers
-sudo supervisorctl restart ecommerce-worker:*
+sudo supervisorctl restart ecommerce-horizon
 ```

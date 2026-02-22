@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Domain\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Messages\SuccessMessages;
@@ -20,11 +21,19 @@ class CustomerController extends Controller
 
     public function show(Request $request): JsonResponse
     {
+        if ($request->user()?->role !== UserRole::CUSTOMER) {
+            return $this->forbidden('Customer profile endpoint is only available for customer users');
+        }
+
         return $this->success(new UserResource($request->user()));
     }
 
     public function update(Request $request): JsonResponse
     {
+        if ($request->user()?->role !== UserRole::CUSTOMER) {
+            return $this->forbidden('Customer profile endpoint is only available for customer users');
+        }
+
         $validated = $request->validate([
             'name' => ['sometimes', 'string', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],

@@ -13,6 +13,8 @@ class CartManagementTest extends TestCase
 {
     use RefreshDatabase, AuthHelpers;
 
+    private string $sessionId = 'cart-test-session';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -21,7 +23,8 @@ class CartManagementTest extends TestCase
 
     public function test_guest_can_view_cart(): void
     {
-        $response = $this->getJson('/api/v1/cart');
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->getJson('/api/v1/cart');
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -34,12 +37,13 @@ class CartManagementTest extends TestCase
     {
         $product = Product::first();
 
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 2,
         ]);
 
-        $response->assertOk();
+        $response->assertCreated();
     }
 
     public function test_authenticated_user_can_add_items_to_cart(): void
@@ -47,12 +51,12 @@ class CartManagementTest extends TestCase
         $this->actingAsCustomer();
         $product = Product::first();
 
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 1,
         ]);
 
-        $response->assertOk();
+        $response->assertCreated();
     }
 
     public function test_can_update_cart_item_quantity(): void
@@ -60,15 +64,18 @@ class CartManagementTest extends TestCase
         $product = Product::first();
 
         // Add item
-        $addResponse = $this->postJson('/api/v1/cart', [
+        $this->withHeader('X-Session-ID', $this->sessionId)->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 1,
         ]);
 
-        $itemId = $addResponse->json('data.items.0.id');
+        $itemId = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->getJson('/api/v1/cart')
+            ->json('data.items.0.id');
 
         // Update quantity
-        $response = $this->putJson("/api/v1/cart/items/{$itemId}", [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->putJson("/api/v1/cart/items/{$itemId}", [
             'quantity' => 3,
         ]);
 
@@ -80,15 +87,18 @@ class CartManagementTest extends TestCase
         $product = Product::first();
 
         // Add item
-        $addResponse = $this->postJson('/api/v1/cart', [
+        $this->withHeader('X-Session-ID', $this->sessionId)->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 1,
         ]);
 
-        $itemId = $addResponse->json('data.items.0.id');
+        $itemId = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->getJson('/api/v1/cart')
+            ->json('data.items.0.id');
 
         // Remove item
-        $response = $this->deleteJson("/api/v1/cart/items/{$itemId}");
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->deleteJson("/api/v1/cart/items/{$itemId}");
 
         $response->assertNoContent();
     }
@@ -98,24 +108,27 @@ class CartManagementTest extends TestCase
         $product = Product::first();
 
         // Add items
-        $this->postJson('/api/v1/cart', [
+        $this->withHeader('X-Session-ID', $this->sessionId)->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 2,
         ]);
 
         // Clear cart
-        $response = $this->deleteJson('/api/v1/cart');
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->deleteJson('/api/v1/cart');
 
-        $response->assertNoContent();
+        $response->assertOk();
 
         // Verify cart is empty
-        $cartResponse = $this->getJson('/api/v1/cart');
+        $cartResponse = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->getJson('/api/v1/cart');
         $this->assertEmpty($cartResponse->json('data.items'));
     }
 
     public function test_cannot_add_invalid_product_to_cart(): void
     {
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->postJson('/api/v1/cart/items', [
             'product_id' => 99999,
             'quantity' => 1,
         ]);
@@ -127,7 +140,8 @@ class CartManagementTest extends TestCase
     {
         $product = Product::first();
 
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 0,
         ]);
@@ -139,7 +153,8 @@ class CartManagementTest extends TestCase
     {
         $product = Product::first();
 
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => -1,
         ]);
@@ -149,20 +164,21 @@ class CartManagementTest extends TestCase
 
     public function test_cart_calculates_total_correctly(): void
     {
-        $product1 = Product::factory()->create(['price' => 100]);
-        $product2 = Product::factory()->create(['price' => 50]);
+        $product1 = Product::factory()->create(['price' => 100, 'is_active' => true]);
+        $product2 = Product::factory()->create(['price' => 50, 'is_active' => true]);
 
-        $this->postJson('/api/v1/cart', [
+        $this->withHeader('X-Session-ID', $this->sessionId)->postJson('/api/v1/cart/items', [
             'product_id' => $product1->id,
             'quantity' => 2,
         ]);
 
-        $this->postJson('/api/v1/cart', [
+        $this->withHeader('X-Session-ID', $this->sessionId)->postJson('/api/v1/cart/items', [
             'product_id' => $product2->id,
             'quantity' => 1,
         ]);
 
-        $response = $this->getJson('/api/v1/cart');
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->getJson('/api/v1/cart');
 
         $total = $response->json('data.total');
         $this->assertEquals(250, $total);
@@ -175,7 +191,8 @@ class CartManagementTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 1,
         ]);
@@ -187,7 +204,8 @@ class CartManagementTest extends TestCase
     {
         $product = Product::factory()->create(['stock' => 5]);
 
-        $response = $this->postJson('/api/v1/cart', [
+        $response = $this->withHeader('X-Session-ID', $this->sessionId)
+            ->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 10,
         ]);

@@ -20,3 +20,4 @@ Artisan::command('orders:expire-unpaid {--hours= : Override expiration window in
 })->purpose('Cancel overdue unpaid orders and restore stock');
 
 Schedule::command('orders:expire-unpaid')->hourly();
+Schedule::command('horizon:snapshot')->everyFiveMinutes();

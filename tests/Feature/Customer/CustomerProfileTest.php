@@ -45,17 +45,19 @@ class CustomerProfileTest extends TestCase
             ]);
     }
 
-    public function test_customer_cannot_update_email_to_existing_email(): void
+    public function test_customer_cannot_update_email_via_profile_endpoint(): void
     {
-        $this->actingAsCustomer(['email' => 'customer@example.com']);
-        $this->createUser(\App\Domain\Enums\UserRole::CUSTOMER, ['email' => 'other@example.com']);
+        $user = $this->actingAsCustomer(['email' => 'customer@example.com']);
 
         $response = $this->putJson('/api/v1/customer/profile', [
             'email' => 'other@example.com',
         ]);
 
-        $response->assertStatus(422)
-            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['email']]]);
+        $response->assertOk();
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'email' => 'customer@example.com',
+        ]);
     }
 
     public function test_customer_profile_requires_authentication(): void

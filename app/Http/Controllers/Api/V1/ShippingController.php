@@ -97,13 +97,15 @@ class ShippingController extends Controller
     private function getDefaultQuote(): array
     {
         return [
-            [
-                'id' => 'standard',
-                'provider' => 'standard',
-                'name' => 'Envío Estándar',
-                'price' => 2500,
-                'estimated_days' => 5,
-                'estimated_delivery' => now()->addDays(5)->format('Y-m-d'),
+            'provider' => 'standard',
+            'options' => [
+                [
+                    'service_code' => 'standard',
+                    'service_name' => 'Envío Estándar',
+                    'cost' => 2500,
+                    'estimated_days' => 5,
+                    'estimated_delivery' => now()->addDays(5)->format('Y-m-d'),
+                ],
             ],
         ];
     }

@@ -73,12 +73,12 @@ class CustomerOrderTest extends TestCase
         $user = $this->actingAsCustomer();
         $order = Order::factory()->create([
             'user_id' => $user->id,
-            'status' => 'completed',
+            'status' => 'delivered',
         ]);
 
         $response = $this->postJson("/api/v1/customer/orders/{$order->id}/cancel");
 
-        $response->assertStatus(422);
+        $response->assertStatus(409);
     }
 
     public function test_customer_can_checkout_with_cart_items(): void
@@ -91,22 +91,34 @@ class CustomerOrderTest extends TestCase
         $product = Product::factory()->create(['price' => 100, 'stock' => 10]);
 
         // Add item to cart
-        $this->postJson('/api/v1/cart', [
+        $this->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 2,
         ]);
 
         // Checkout
         $response = $this->postJson('/api/v1/checkout', [
-            'shipping_address_id' => $address->id,
-            'billing_address_id' => $address->id,
+            'shipping_address' => [
+                'name' => $address->name,
+                'email' => $user->email,
+                'phone' => $address->phone,
+                'address' => $address->address,
+                'city' => $address->city,
+                'state' => $address->state ?? 'BA',
+                'postal_code' => $address->postal_code,
+                'country' => $address->country ?? 'AR',
+            ],
+            'shipping_cost' => 0,
             'payment_method' => 'mercadopago',
         ]);
 
-        $response->assertOk()
+        $response->assertCreated()
             ->assertJsonStructure([
                 'success',
-                'data' => ['order_id', 'payment_url'],
+                'data' => [
+                    'order' => ['id'],
+                    'payment_url',
+                ],
             ]);
     }
 
@@ -115,7 +127,7 @@ class CustomerOrderTest extends TestCase
         $this->actingAsCustomer();
         $product = Product::factory()->create();
 
-        $this->postJson('/api/v1/cart', [
+        $this->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
             'quantity' => 1,
         ]);
@@ -124,8 +136,7 @@ class CustomerOrderTest extends TestCase
             'payment_method' => 'mercadopago',
         ]);
 
-        $response->assertStatus(422)
-            ->assertStatus(422)->assertJsonStructure(['error' => ['details' => ['shipping_address_id']]]);
+        $this->assertCustomValidationErrors($response, ['shipping_address']);
     }
 
     public function test_checkout_fails_with_empty_cart(): void
@@ -134,12 +145,21 @@ class CustomerOrderTest extends TestCase
         $address = CustomerAddress::factory()->create(['user_id' => $user->id]);
 
         $response = $this->postJson('/api/v1/checkout', [
-            'shipping_address_id' => $address->id,
-            'billing_address_id' => $address->id,
+            'shipping_address' => [
+                'name' => $address->name,
+                'email' => $user->email,
+                'phone' => $address->phone,
+                'address' => $address->address,
+                'city' => $address->city,
+                'state' => $address->state ?? 'BA',
+                'postal_code' => $address->postal_code,
+                'country' => $address->country ?? 'AR',
+            ],
+            'shipping_cost' => 0,
             'payment_method' => 'mercadopago',
         ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(409);
     }
 
     public function test_checkout_validates_stock_availability(): void
@@ -148,17 +168,28 @@ class CustomerOrderTest extends TestCase
         $address = CustomerAddress::factory()->create(['user_id' => $user->id]);
         $product = Product::factory()->create(['stock' => 1]);
 
-        $this->postJson('/api/v1/cart', [
+        $this->postJson('/api/v1/cart/items', [
             'product_id' => $product->id,
-            'quantity' => 5,
+            'quantity' => 1,
         ]);
 
+        $product->update(['stock' => 0]);
+
         $response = $this->postJson('/api/v1/checkout', [
-            'shipping_address_id' => $address->id,
-            'billing_address_id' => $address->id,
+            'shipping_address' => [
+                'name' => $address->name,
+                'email' => $user->email,
+                'phone' => $address->phone,
+                'address' => $address->address,
+                'city' => $address->city,
+                'state' => $address->state ?? 'BA',
+                'postal_code' => $address->postal_code,
+                'country' => $address->country ?? 'AR',
+            ],
+            'shipping_cost' => 0,
             'payment_method' => 'mercadopago',
         ]);
 
-        $response->assertStatus(422);
+        $response->assertStatus(409);
     }
 }

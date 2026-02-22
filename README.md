@@ -120,6 +120,9 @@ Asegúrate de tener Redis instalado y corriendo:
 REDIS_HOST=127.0.0.1
 REDIS_PASSWORD=null
 REDIS_PORT=6379
+REDIS_DB=0
+REDIS_CACHE_DB=1
+REDIS_QUEUE_DB=2
 
 CACHE_STORE=redis
 SESSION_DRIVER=redis
@@ -153,10 +156,17 @@ php artisan serve
 # API disponible en: http://localhost:8000
 ```
 
-### Iniciar Queue Worker
+### Iniciar Queue Worker (ProducciÃ³n recomendado: Horizon)
 
 ```bash
-php artisan queue:work redis
+php artisan horizon
+```
+
+Para monitoreo local:
+
+```bash
+php artisan horizon:status
+php artisan horizon:supervisors
 ```
 
 ### Iniciar WebSocket Server (Laravel Reverb)
